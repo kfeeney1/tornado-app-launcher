@@ -1,6 +1,25 @@
 # Tornado App Launcher
 
-Tornado is a responsive React/Vite browser launcher for a focused set of apps and games. It uses a dark Tornado-branded interface, supports light mode, local launcher customisation, app discovery, search, profile/settings screens and a small responsive smoke suite.
+Tornado is a responsive React/Vite browser launcher for a focused set of apps and games. It uses Tornado branding, supports dark/light appearance modes, local launcher customisation, app discovery, search, profile/settings screens and a focused responsive Playwright smoke suite.
+
+## Deployment architecture
+
+Tornado uses one live Firebase environment only.
+
+```text
+feature branch → Pull Request → Quality CI → main → Firebase Hosting → LIVE
+```
+
+- GitHub repository: `kfeeney1/tornado-app-launcher`
+- release branch: `main`
+- Firebase project: `tornado-app-launcher`
+- Hosting build output: `dist`
+- Hosting configuration: `firebase.json`
+- Firebase project binding: `.firebaserc`
+- live deployment workflow: `.github/workflows/deploy-firebase.yml`
+- default live URL: `https://tornado-app-launcher.web.app`
+
+There is no TEST Firebase project and no TEST-to-PRODUCTION promotion flow. Changes merged to `main` are deployed to the live Tornado App Launcher after successful checks.
 
 ## Prerequisites
 
@@ -10,7 +29,7 @@ Tornado is a responsive React/Vite browser launcher for a focused set of apps an
 ## Run locally
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -18,19 +37,22 @@ Create a production build with `npm run build`; Vite writes output to `dist`.
 
 ## Quality and tests
 
+Run the same core checks used by CI:
+
 ```bash
+npm ci
 npm run lint
 npm run build
 npx playwright install chromium
 npm run test:smoke
 ```
 
-Playwright covers core desktop and Pixel 7-sized mobile journeys. GitHub Actions runs lint, build and the smoke suite for pull requests and pushes to `main`.
+The focused Playwright suite covers the launcher, Apps/Games, Settings, Appearance, Profile, app discovery/search, add/remove behaviour and mobile overflow. GitHub Actions runs quality checks for pull requests and pushes to `main`.
 
 ## Current functionality
 
 - Tornado launcher with up to 5 primary apps and 5 primary games
-- clock and launcher search
+- live clock and launcher search
 - local add/remove launcher entries
 - app-store-style catalogue and search
 - Settings with persistent dark/light appearance
@@ -41,18 +63,20 @@ Playwright covers core desktop and Pixel 7-sized mobile journeys. GitHub Actions
 
 Minecraft, Fortnite and other native software entries are launcher/demo entries unless a legitimate web destination exists. A browser application cannot install arbitrary native software or increase native-game FPS; OS/game optimisation would require a future desktop architecture.
 
-## Firebase Hosting
+## Firebase Hosting and authentication
 
-The project uses a single Firebase Hosting environment:
+Pushes/merges to `main` run lint, the Vite production build and Playwright smoke tests before the deployment job is allowed to run. The deployment explicitly targets Firebase project `tornado-app-launcher` and the Hosting `live` channel.
 
-- Firebase project: `tornado-app-launcher`
-- build output: `dist`
-- Hosting configuration: `firebase.json`
-- project binding: `.firebaserc`
-- deployment workflow: `.github/workflows/deploy-firebase.yml`
+Deployment authentication uses the repository secret `FIREBASE_SERVICE_ACCOUNT_TORNADO_APP_LAUNCHER`. Keep the service-account JSON only in GitHub Secrets; never commit credentials, private keys or passwords to the repository.
 
-Pushes to `main` run lint, build and Playwright smoke tests before deploying the Vite production build to the Firebase Hosting live channel.
+## Future deployments
 
-The deployment workflow expects the repository secret `FIREBASE_SERVICE_ACCOUNT_TORNADO_APP_LAUNCHER`. Keep the service-account JSON only in GitHub Secrets; never commit credentials or private keys to the repository.
+1. Create a feature branch.
+2. Open a Pull Request into `main`.
+3. Keep the change unmerged until the Quality workflow succeeds.
+4. Merge only work that is ready to become live.
+5. The `main` deployment workflow rebuilds and rechecks the application.
+6. Firebase Hosting deploys the successful `dist` build to `tornado-app-launcher`.
+7. Verify the live site after deployment.
 
-Default Firebase Hosting URL: `https://tornado-app-launcher.web.app`.
+Operational rule: **if a change is not ready to be live, do not merge it into `main`.**

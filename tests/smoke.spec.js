@@ -20,6 +20,26 @@ test('launcher, settings, profile and appearance work', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible()
 })
 
+test('browser back and forward navigate inside Tornado', async ({ page }) => {
+  await start(page)
+
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+
+  await page.goBack()
+  await expect(page.getByRole('heading', { name: 'Apps' })).toBeVisible()
+  await expect(page).toHaveURL('/')
+
+  await page.goForward()
+  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Profile' }).click()
+  await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible()
+
+  await page.goBack()
+  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+})
+
 test('store search can add and launcher can remove an item', async ({ page }) => {
   await start(page)
   await page.getByRole('button', { name: 'Add Apps' }).click()

@@ -13,9 +13,12 @@ const read = (key, fallback) => {
 }
 
 const validViews = new Set(['home', 'store', 'profile', 'settings'])
+const historyView = () => validViews.has(window.history.state?.tornadoView)
+  ? window.history.state.tornadoView
+  : 'home'
 
 export default function App() {
-  const [view, setView] = useState('home')
+  const [view, setView] = useState(historyView)
   const [theme, setTheme] = useState(() => read('tornado-theme', 'dark'))
   const [selected, setSelected] = useState(() => read('tornado-selection', defaultSelection))
   const [query, setQuery] = useState('')
@@ -23,12 +26,7 @@ export default function App() {
   const [booting, setBooting] = useState(true)
 
   useEffect(() => {
-    const initialView = validViews.has(window.history.state?.tornadoView)
-      ? window.history.state.tornadoView
-      : 'home'
-
-    window.history.replaceState({ ...window.history.state, tornadoView: initialView }, '')
-    setView(initialView)
+    window.history.replaceState({ ...window.history.state, tornadoView: historyView() }, '')
 
     const onPopState = event => {
       const nextView = validViews.has(event.state?.tornadoView) ? event.state.tornadoView : 'home'

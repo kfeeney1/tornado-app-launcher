@@ -1,41 +1,48 @@
 # Tornado App Launcher
 
-Tornado App Launcher is a web application project for launching and managing a small set of apps and games through a focused launcher-style interface.
+Tornado is a responsive React/Vite browser launcher for a focused set of apps and games. It uses a dark Tornado-branded interface, supports light mode, local launcher customisation, app discovery, search, profile/settings screens and a small responsive smoke suite.
 
-## Current status
+## Prerequisites
 
-Repository established and ready for the Tornado App Launcher source code. The application UI and functionality will be transferred or rebuilt in a later step; this repository setup does not attempt to reconstruct the existing prototype.
+- Node.js 22 recommended
+- npm
 
-## Intended technology
+## Run locally
 
-- React
-- Vite
-- Node.js tooling
+```bash
+npm install
+npm run dev
+```
 
-## Deployment plan
+Create a production build with `npm run build`; Vite writes output to `dist`.
 
-The intended deployment architecture is GitHub + Firebase Hosting with separate TEST and PRODUCTION Firebase projects.
+## Quality and tests
 
-### TEST
+```bash
+npm run lint
+npm run build
+npx playwright install chromium
+npm run test:smoke
+```
 
-Planned Firebase project: `tornado-app-launcher-test`
+Playwright covers core desktop and Pixel 7-sized mobile journeys. GitHub Actions runs lint, build and the smoke suite for pull requests and pushes to `main`.
 
-Future flow:
+## Current functionality
 
-`feature branch → Pull Request → CI → main → Firebase TEST`
+- Tornado launcher with up to 5 primary apps and 5 primary games
+- clock and launcher search
+- local add/remove launcher entries
+- app-store-style catalogue and search
+- Settings with persistent dark/light appearance
+- local/demo Profile
+- startup Tornado animation
+- responsive desktop, tablet and mobile layouts
+- localStorage persistence for non-sensitive launcher preferences
 
-TEST is intended to deploy automatically from `main` once Firebase and GitHub Actions are configured in a later step.
+Minecraft, Fortnite and other native software entries are launcher/demo entries unless a legitimate web destination exists. A browser application cannot install arbitrary native software or increase native-game FPS; OS/game optimisation would require a future desktop architecture.
 
-### PRODUCTION
+## Deployment status
 
-Planned Firebase project: `tornado-app-launcher`
+Firebase deployment has **not yet been configured**. Step 3 will establish the separate Firebase TEST environment and automatic GitHub → TEST deployment. The planned production deployment remains a later, manual-only flow.
 
-Future flow:
-
-`main → manually triggered GitHub Actions production deployment → Firebase PRODUCTION`
-
-Production deployment must remain manual only and must never run automatically merely because `main` changes.
-
-## Security
-
-Do not commit passwords, Firebase service-account files, API secrets, private keys, credentials, or local environment files containing secrets to this repository.
+No Firebase projects, service accounts, deployment secrets or Firebase workflows are part of Step 2.

@@ -12,6 +12,8 @@ const read = (key, fallback) => {
   }
 }
 
+const validViews = new Set(['home', 'store', 'profile', 'settings'])
+
 export default function App() {
   const [view, setView] = useState('home')
   const [theme, setTheme] = useState(() => read('tornado-theme', 'dark'))
@@ -19,6 +21,23 @@ export default function App() {
   const [query, setQuery] = useState('')
   const [download, setDownload] = useState(null)
   const [booting, setBooting] = useState(true)
+
+  useEffect(() => {
+    const initialView = validViews.has(window.history.state?.tornadoView)
+      ? window.history.state.tornadoView
+      : 'home'
+
+    window.history.replaceState({ ...window.history.state, tornadoView: initialView }, '')
+    setView(initialView)
+
+    const onPopState = event => {
+      const nextView = validViews.has(event.state?.tornadoView) ? event.state.tornadoView : 'home'
+      setView(nextView)
+    }
+
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
 
   useEffect(() => {
     if (!download) return undefined
@@ -44,6 +63,12 @@ export default function App() {
 
     return () => window.clearInterval(timer)
   }, [download?.id])
+
+  const navigate = nextView => {
+    if (!validViews.has(nextView) || nextView === view) return
+    window.history.pushState({ ...window.history.state, tornadoView: nextView }, '')
+    setView(nextView)
+  }
 
   const saveSelection = next => {
     setSelected(next)
@@ -91,7 +116,7 @@ export default function App() {
 
   return (
     <div className={`app ${theme}`}>
-      <Navigation view={view} onNavigate={setView} />
+      <Navigation view={view} onNavigate={navigate} />
       <main className="content">
         {view === 'home' && (
           <>
@@ -123,7 +148,7 @@ export default function App() {
                   {chosen(type)
                     .filter(item => `${item.name} ${item.description}`.toLowerCase().includes(query.toLowerCase()))
                     .map(item => <LauncherCard key={item.id} item={item} onRemove={remove} />)}
-                  <button className="add-card" onClick={() => setView('store')}>
+                  <button className="add-card" onClick={() => navigate('store')}>
                     + Add {type === 'app' ? 'app' : 'game'}
                   </button>
                 </div>
@@ -134,7 +159,7 @@ export default function App() {
 
         {view === 'store' && (
           <section>
-            <PageHead title="Discover" text="Add web apps and launcher entries to Tornado." onHome={() => setView('home')} />
+            <PageHead title="Discover" text="Add web apps and launcher entries to Tornado." onHome={() => navigate('home')} />
             <label className="search">
               <span aria-hidden="true">⌕</span>
               <input
@@ -174,7 +199,7 @@ export default function App() {
 
         {view === 'settings' && (
           <section>
-            <PageHead title="Settings" text="Make Tornado feel like yours." onHome={() => setView('home')} />
+            <PageHead title="Settings" text="Make Tornado feel like yours." onHome={() => navigate('home')} />
             <div className="panel">
               <h2>Appearance</h2>
               <p>Choose how Tornado looks on this device.</p>
@@ -192,7 +217,7 @@ export default function App() {
 
         {view === 'profile' && (
           <section>
-            <PageHead title="Profile" text="Your local Tornado profile." onHome={() => setView('home')} />
+            <PageHead title="Profile" text="Your local Tornado profile." onHome={() => navigate('home')} />
             <div className="profile-card">
               <div className="avatar" aria-hidden="true">T</div>
               <div>

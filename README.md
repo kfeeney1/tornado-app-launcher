@@ -41,8 +41,18 @@ Playwright covers core desktop and Pixel 7-sized mobile journeys. GitHub Actions
 
 Minecraft, Fortnite and other native software entries are launcher/demo entries unless a legitimate web destination exists. A browser application cannot install arbitrary native software or increase native-game FPS; OS/game optimisation would require a future desktop architecture.
 
-## Deployment status
+## Firebase Hosting
 
-Firebase deployment has **not yet been configured**. Step 3 will establish the separate Firebase TEST environment and automatic GitHub → TEST deployment. The planned production deployment remains a later, manual-only flow.
+The project uses a single Firebase Hosting environment:
 
-No Firebase projects, service accounts, deployment secrets or Firebase workflows are part of Step 2.
+- Firebase project: `tornado-app-launcher`
+- build output: `dist`
+- Hosting configuration: `firebase.json`
+- project binding: `.firebaserc`
+- deployment workflow: `.github/workflows/deploy-firebase.yml`
+
+Pushes to `main` run lint, build and Playwright smoke tests before deploying the Vite production build to the Firebase Hosting live channel.
+
+The deployment workflow expects the repository secret `FIREBASE_SERVICE_ACCOUNT_TORNADO_APP_LAUNCHER`. Keep the service-account JSON only in GitHub Secrets; never commit credentials or private keys to the repository.
+
+Default Firebase Hosting URL: `https://tornado-app-launcher.web.app`.

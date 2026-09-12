@@ -25,14 +25,16 @@ const rootHistoryState = {
 }
 
 export default function App() {
-  const { user, signOut } = useAuth()
+  const { user, signOut, resetPassword } = useAuth()
   const [view, setView] = useState(historyView)
   const [theme, setTheme] = useState(() => read('tornado-theme', 'dark'))
   const [selected, setSelected] = useState(() => read('tornado-selection', defaultSelection))
   const [query, setQuery] = useState('')
   const [download, setDownload] = useState(null)
   const [accountError, setAccountError] = useState('')
+  const [accountMessage, setAccountMessage] = useState('')
   const [signingOut, setSigningOut] = useState(false)
+  const [resettingPassword, setResettingPassword] = useState(false)
 
   useEffect(() => {
     if (!window.history.state?.tornadoSession) {
@@ -123,12 +125,28 @@ export default function App() {
 
   const handleSignOut = async () => {
     setAccountError('')
+    setAccountMessage('')
     setSigningOut(true)
     try {
       await signOut()
     } catch (error) {
       setAccountError(error.message)
       setSigningOut(false)
+    }
+  }
+
+  const handlePasswordReset = async () => {
+    if (!user?.email) return
+    setAccountError('')
+    setAccountMessage('')
+    setResettingPassword(true)
+    try {
+      await resetPassword(user.email)
+      setAccountMessage('A password reset email has been requested for your Tornado account.')
+    } catch (error) {
+      setAccountError(error.message)
+    } finally {
+      setResettingPassword(false)
     }
   }
 
@@ -255,13 +273,16 @@ export default function App() {
             </div>
             <div className="panel">
               <h2>Account</h2>
-              <p>Signed in as <strong>{user?.email}</strong>. Password changes use the secure reset-email flow.</p>
+              <p>Signed in as <strong>{user?.email}</strong>.</p>
               {accountError && <div className="auth-message error" role="alert">{accountError}</div>}
+              {accountMessage && <div className="auth-message success" role="status">{accountMessage}</div>}
               <div className="account-actions">
-                <button onClick={() => window.open(`mailto:${user?.email || ''}`, '_self')} className="secondary-action" disabled>Change/reset password</button>
-                <button onClick={handleSignOut} className="danger-action" disabled={signingOut}>{signingOut ? 'Signing out…' : 'Sign Out'}</button>
+                <button onClick={handlePasswordReset} className="secondary-action" disabled={resettingPassword || signingOut}>
+                  {resettingPassword ? 'Requesting reset…' : 'Reset Password'}
+                </button>
+                <button onClick={handleSignOut} className="danger-action" disabled={signingOut || resettingPassword}>{signingOut ? 'Signing out…' : 'Sign Out'}</button>
               </div>
-              <p className="field-help">Password reset is available from the signed-out screen. Cloud profile and settings sync are intentionally not enabled in Phase 1.</p>
+              <p className="field-help">Password reset uses Firebase email. Cloud profile and settings sync are intentionally not enabled in Phase 1.</p>
             </div>
             <div className="panel">
               <h2>Launcher</h2>

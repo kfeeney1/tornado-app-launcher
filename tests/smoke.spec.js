@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test'
+import { signInTestUser } from './auth-helpers.js'
 
 async function start(page) {
-  await page.goto('/')
-  await page.getByRole('button', { name: 'Start' }).click()
+  await signInTestUser(page)
 }
 
 const pageHome = page => page.getByRole('main').getByRole('button', { name: 'Home' })
@@ -28,6 +28,7 @@ test('launcher, settings, profile and appearance work', async ({ page }) => {
   await pageHome(page).click()
   await page.getByRole('button', { name: 'Profile' }).click()
   await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible()
+  await expect(page.getByText('existing@tornado.test').first()).toBeVisible()
 })
 
 test('browser back and forward navigate inside Tornado', async ({ page }) => {
@@ -50,14 +51,8 @@ test('browser back and forward navigate inside Tornado', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
 })
 
-test('browser back asks before leaving from Start and Home', async ({ page }) => {
-  await page.goto('/')
-  await expect(page.getByRole('button', { name: 'Start' })).toBeVisible()
-
-  await dismissExitConfirmation(page)
-  await expect(page.getByRole('button', { name: 'Start' })).toBeVisible()
-
-  await page.getByRole('button', { name: 'Start' }).click()
+test('browser back asks before leaving from signed-in Home', async ({ page }) => {
+  await start(page)
   await expect(page.getByRole('heading', { name: 'Apps' })).toBeVisible()
 
   await dismissExitConfirmation(page)

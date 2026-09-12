@@ -4,6 +4,7 @@ import Navigation from './components/Navigation.jsx'
 import Clock from './components/Clock.jsx'
 import LauncherCard from './components/LauncherCard.jsx'
 import AppIcon from './components/AppIcon.jsx'
+import { useAuth } from './auth/AuthContext.jsx'
 
 const read = (key, fallback) => {
   try {
@@ -24,12 +25,14 @@ const rootHistoryState = {
 }
 
 export default function App() {
+  const { user, signOut } = useAuth()
   const [view, setView] = useState(historyView)
   const [theme, setTheme] = useState(() => read('tornado-theme', 'dark'))
   const [selected, setSelected] = useState(() => read('tornado-selection', defaultSelection))
   const [query, setQuery] = useState('')
   const [download, setDownload] = useState(null)
-  const [booting, setBooting] = useState(true)
+  const [accountError, setAccountError] = useState('')
+  const [signingOut, setSigningOut] = useState(false)
 
   useEffect(() => {
     if (!window.history.state?.tornadoSession) {
@@ -118,6 +121,17 @@ export default function App() {
     setDownload({ id: item.id, progress: 0 })
   }
 
+  const handleSignOut = async () => {
+    setAccountError('')
+    setSigningOut(true)
+    try {
+      await signOut()
+    } catch (error) {
+      setAccountError(error.message)
+      setSigningOut(false)
+    }
+  }
+
   const filtered = useMemo(
     () => catalog.filter(item => `${item.name} ${item.type} ${item.description}`.toLowerCase().includes(query.toLowerCase())),
     [query],
@@ -127,19 +141,6 @@ export default function App() {
     .map(id => catalog.find(item => item.id === id))
     .filter(item => item?.type === type)
     .slice(0, 5)
-
-  if (booting) {
-    return (
-      <div className={`app ${theme}`}>
-        <main className="startup">
-          <div className="startup-vortex" aria-hidden="true">◒</div>
-          <h1>Tornado</h1>
-          <p>Ready when you are.</p>
-          <button autoFocus onClick={() => setBooting(false)}>Start</button>
-        </main>
-      </div>
-    )
-  }
 
   return (
     <div className={`app ${theme}`}>
@@ -244,22 +245,32 @@ export default function App() {
 
         {view === 'profile' && (
           <section>
-            <PageHead title="Profile" text="Your local Tornado profile." onHome={() => navigate('home')} />
+            <PageHead title="Profile" text="Your Tornado account and this device’s local launcher." onHome={() => navigate('home')} />
             <div className="profile-card">
               <div className="avatar" aria-hidden="true">T</div>
               <div>
-                <h2>Player</h2>
-                <p>Local profile · no account required</p>
+                <h2>Tornado account</h2>
+                <p>{user?.email}</p>
               </div>
             </div>
             <div className="panel">
+              <h2>Account</h2>
+              <p>Signed in as <strong>{user?.email}</strong>. Password changes use the secure reset-email flow.</p>
+              {accountError && <div className="auth-message error" role="alert">{accountError}</div>}
+              <div className="account-actions">
+                <button onClick={() => window.open(`mailto:${user?.email || ''}`, '_self')} className="secondary-action" disabled>Change/reset password</button>
+                <button onClick={handleSignOut} className="danger-action" disabled={signingOut}>{signingOut ? 'Signing out…' : 'Sign Out'}</button>
+              </div>
+              <p className="field-help">Password reset is available from the signed-out screen. Cloud profile and settings sync are intentionally not enabled in Phase 1.</p>
+            </div>
+            <div className="panel">
               <h2>Launcher</h2>
-              <p>{selected.length} items currently pinned. Profile and launcher preferences stay on this browser for now.</p>
+              <p>{selected.length} items currently pinned. Launcher and appearance preferences remain local to this device for now.</p>
             </div>
           </section>
         )}
       </main>
-      <footer>Tornado · Browser launcher preview</footer>
+      <footer>Tornado · Account-enabled launcher</footer>
     </div>
   )
 }

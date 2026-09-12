@@ -6,16 +6,11 @@ const CloudProfileContext = createContext(null)
 
 export function CloudProfileProvider({ children }) {
   const { user } = useAuth()
-  const [state, setState] = useState({ status: 'idle', message: '' })
+  const [state, setState] = useState({ status: 'preparing', message: '' })
 
   useEffect(() => {
     let active = true
-    if (!user) {
-      setState({ status: 'idle', message: '' })
-      return () => { active = false }
-    }
 
-    setState({ status: 'preparing', message: '' })
     ensureUserProfile(user)
       .then(result => {
         if (!active) return

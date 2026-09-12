@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
 const AuthContext = createContext(null)
 const TEST_SESSION_KEY = 'tornado-test-auth-session'
@@ -48,6 +48,12 @@ function mapAuthError(error) {
   return 'Unable to complete that request right now. Please try again.'
 }
 
+function authError(code) {
+  const error = new Error(code)
+  error.code = code
+  return error
+}
+
 function createTestAdapter() {
   let listener = null
   const readSession = () => {
@@ -64,7 +70,7 @@ function createTestAdapter() {
     },
     async signIn(email, password) {
       if (email.toLowerCase() !== TEST_ACCOUNT.email || password !== TEST_ACCOUNT.password) {
-        throw { code: 'auth/invalid-credential' }
+        throw authError('auth/invalid-credential')
       }
       localStorage.setItem(TEST_SESSION_KEY, email.toLowerCase())
       publish(readSession())
@@ -142,14 +148,14 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  const run = async operation => {
+  const run = useCallback(async operation => {
     if (!adapter) throw new Error(initializationError || 'Tornado sign-in is still loading.')
     try {
       return await operation(adapter)
     } catch (error) {
       throw new Error(mapAuthError(error))
     }
-  }
+  }, [adapter, initializationError])
 
   const value = useMemo(() => ({
     user,
@@ -160,7 +166,7 @@ export function AuthProvider({ children }) {
     signUp: (email, password) => run(auth => auth.signUp(email, password)),
     signOut: () => run(auth => auth.signOut()),
     resetPassword: email => run(auth => auth.resetPassword(email)),
-  }), [user, isLoading, initializationError, adapter])
+  }), [user, isLoading, initializationError, run])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

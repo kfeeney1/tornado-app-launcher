@@ -28,14 +28,11 @@ export default function AuthScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [error, setError] = useState(initializationError)
+  const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const errorRef = useRef(null)
-
-  useEffect(() => {
-    setError(initializationError)
-  }, [initializationError])
+  const visibleError = error || initializationError
 
   useEffect(() => {
     if (!window.history.state?.tornadoAuth) {
@@ -70,8 +67,8 @@ export default function AuthScreen() {
   }, [])
 
   useEffect(() => {
-    if (error) errorRef.current?.focus()
-  }, [error])
+    if (visibleError) errorRef.current?.focus()
+  }, [visibleError])
 
   const navigate = nextView => {
     if (!authViews.has(nextView) || nextView === view) return
@@ -167,7 +164,7 @@ export default function AuthScreen() {
             <form onSubmit={handleSignIn} noValidate>
               <h2>Sign in</h2>
               <p className="auth-intro">Use your Tornado email and password.</p>
-              <AuthMessages error={error} message={message} errorRef={errorRef} />
+              <AuthMessages error={visibleError} message={message} errorRef={errorRef} />
               <EmailField value={email} onChange={setEmail} />
               <PasswordField label="Password" value={password} onChange={setPassword} autoComplete="current-password" />
               <button className="primary-action" type="submit" disabled={submitting || Boolean(initializationError)}>
@@ -182,7 +179,7 @@ export default function AuthScreen() {
             <form onSubmit={handleSignUp} noValidate>
               <h2>Create account</h2>
               <p className="auth-intro">Create one Tornado identity for this and future clients.</p>
-              <AuthMessages error={error} message={message} errorRef={errorRef} />
+              <AuthMessages error={visibleError} message={message} errorRef={errorRef} />
               <EmailField value={email} onChange={setEmail} />
               <PasswordField label="Password" value={password} onChange={setPassword} autoComplete="new-password" />
               <PasswordField label="Confirm password" value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" />
@@ -198,7 +195,7 @@ export default function AuthScreen() {
             <form onSubmit={handleReset} noValidate>
               <h2>Forgot password?</h2>
               <p className="auth-intro">Enter your email and we’ll send reset instructions when possible.</p>
-              <AuthMessages error={error} message={message} errorRef={errorRef} />
+              <AuthMessages error={visibleError} message={message} errorRef={errorRef} />
               <EmailField value={email} onChange={setEmail} />
               <button className="primary-action" type="submit" disabled={submitting || Boolean(initializationError)}>
                 {submitting ? 'Sending…' : 'Send Reset Email'}

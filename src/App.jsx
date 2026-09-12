@@ -17,6 +17,11 @@ const historyView = () => validViews.has(window.history.state?.tornadoView)
   ? window.history.state.tornadoView
   : 'home'
 
+const rootHistoryState = {
+  tornadoSession: true,
+  tornadoView: 'home',
+}
+
 export default function App() {
   const [view, setView] = useState(historyView)
   const [theme, setTheme] = useState(() => read('tornado-theme', 'dark'))
@@ -26,9 +31,29 @@ export default function App() {
   const [booting, setBooting] = useState(true)
 
   useEffect(() => {
-    window.history.replaceState({ ...window.history.state, tornadoView: historyView() }, '')
+    if (!window.history.state?.tornadoSession) {
+      window.history.replaceState({
+        ...window.history.state,
+        ...rootHistoryState,
+        tornadoExitBoundary: true,
+      }, '')
+      window.history.pushState(rootHistoryState, '')
+    }
 
     const onPopState = event => {
+      if (event.state?.tornadoExitBoundary) {
+        const shouldExit = window.confirm('Exit Tornado?')
+
+        if (shouldExit) {
+          window.history.back()
+          return
+        }
+
+        window.history.pushState(rootHistoryState, '')
+        setView('home')
+        return
+      }
+
       const nextView = validViews.has(event.state?.tornadoView) ? event.state.tornadoView : 'home'
       setView(nextView)
     }
@@ -64,7 +89,10 @@ export default function App() {
 
   const navigate = nextView => {
     if (!validViews.has(nextView) || nextView === view) return
-    window.history.pushState({ ...window.history.state, tornadoView: nextView }, '')
+    window.history.pushState({
+      tornadoSession: true,
+      tornadoView: nextView,
+    }, '')
     setView(nextView)
   }
 

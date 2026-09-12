@@ -1,12 +1,16 @@
 export type TornadoTheme = 'dark' | 'light'
 export type TornadoItemType = 'app' | 'game'
 
+export interface FirestoreTimestampLike {
+  toMillis(): number
+}
+
 export interface TornadoUserProfile {
   schemaVersion: 1
   email: string | null
   displayName: string | null
-  createdAt: import('firebase/firestore').Timestamp
-  updatedAt: import('firebase/firestore').Timestamp
+  createdAt: FirestoreTimestampLike
+  updatedAt: FirestoreTimestampLike
 }
 
 export interface PortableCatalogueEntry {

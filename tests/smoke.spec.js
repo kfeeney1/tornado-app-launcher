@@ -7,6 +7,16 @@ async function start(page) {
 
 const pageHome = page => page.getByRole('main').getByRole('button', { name: 'Home' })
 
+async function dismissExitConfirmation(page) {
+  const dialogPromise = page.waitForEvent('dialog')
+  const backPromise = page.evaluate(() => window.history.back())
+  const dialog = await dialogPromise
+  expect(dialog.type()).toBe('confirm')
+  expect(dialog.message()).toBe('Exit Tornado?')
+  await dialog.dismiss()
+  await backPromise
+}
+
 test('launcher, settings, profile and appearance work', async ({ page }) => {
   await start(page)
   await expect(page.getByRole('heading', { name: 'Apps' })).toBeVisible()
@@ -38,6 +48,20 @@ test('browser back and forward navigate inside Tornado', async ({ page }) => {
 
   await page.goBack()
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+})
+
+test('browser back asks before leaving from Start and Home', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('button', { name: 'Start' })).toBeVisible()
+
+  await dismissExitConfirmation(page)
+  await expect(page.getByRole('button', { name: 'Start' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Start' }).click()
+  await expect(page.getByRole('heading', { name: 'Apps' })).toBeVisible()
+
+  await dismissExitConfirmation(page)
+  await expect(page.getByRole('heading', { name: 'Apps' })).toBeVisible()
 })
 
 test('store search can add and launcher can remove an item', async ({ page }) => {

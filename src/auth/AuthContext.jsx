@@ -153,7 +153,7 @@ export function AuthProvider({ children }) {
     try {
       return await operation(adapter)
     } catch (error) {
-      throw new Error(mapAuthError(error))
+      throw new Error(mapAuthError(error), { cause: error })
     }
   }, [adapter, initializationError])
 

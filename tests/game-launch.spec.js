@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { catalog } from '../src/data/catalog.js'
+import { signInTestUser } from './auth-helpers.js'
 
 test('default native games expose launch and install fallbacks', async () => {
   const games = catalog
@@ -17,8 +18,7 @@ test('default native games expose launch and install fallbacks', async () => {
 })
 
 test('game tiles are actionable launcher buttons', async ({ page }) => {
-  await page.goto('/')
-  await page.getByRole('button', { name: 'Start' }).click()
+  await signInTestUser(page)
 
   await expect(page.getByRole('button', { name: 'Launch Minecraft' })).toBeEnabled()
   await expect(page.getByRole('button', { name: 'Launch Fortnite' })).toBeEnabled()

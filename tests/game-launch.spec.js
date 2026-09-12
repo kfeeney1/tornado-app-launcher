@@ -1,14 +1,10 @@
 import { test, expect } from '@playwright/test'
+import { catalog } from '../src/data/catalog.js'
 
-test('default native games expose launch and install fallbacks', async ({ page }) => {
-  await page.goto('/')
-
-  const games = await page.evaluate(async () => {
-    const { catalog } = await import('/src/data/catalog.js')
-    return catalog
-      .filter(item => ['minecraft', 'fortnite', 'roblox'].includes(item.id))
-      .map(({ id, launchUrl, installUrl, playStoreUrl }) => ({ id, launchUrl, installUrl, playStoreUrl }))
-  })
+test('default native games expose launch and install fallbacks', async () => {
+  const games = catalog
+    .filter(item => ['minecraft', 'fortnite', 'roblox'].includes(item.id))
+    .map(({ id, launchUrl, installUrl, playStoreUrl }) => ({ id, launchUrl, installUrl, playStoreUrl }))
 
   expect(games).toHaveLength(3)
   for (const game of games) {

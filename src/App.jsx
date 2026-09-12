@@ -3,6 +3,7 @@ import { catalog, defaultSelection } from './data/catalog.js'
 import Navigation from './components/Navigation.jsx'
 import Clock from './components/Clock.jsx'
 import LauncherCard from './components/LauncherCard.jsx'
+import AppIcon from './components/AppIcon.jsx'
 
 const read = (key, fallback) => {
   try {
@@ -200,7 +201,7 @@ export default function App() {
                 const isDownloading = download?.id === item.id
                 return (
                   <article className="store-card" key={item.id}>
-                    <span className="app-icon" aria-hidden="true">{item.glyph}</span>
+                    <AppIcon item={item} />
                     <div>
                       <h3>{item.name}</h3>
                       <p>{item.description}</p>

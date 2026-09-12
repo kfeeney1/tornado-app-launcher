@@ -11,8 +11,9 @@ async function createUser(email) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ email, password: 'Tornado123!', returnSecureToken: true }),
   })
-  assert.equal(response.ok, true, await response.text())
-  return response.json()
+  const body = await response.text()
+  assert.equal(response.ok, true, body)
+  return JSON.parse(body)
 }
 
 function documentUrl(path) {

@@ -1,20 +1,21 @@
-export function resolveLaunchTarget(item, userAgent = globalThis.navigator?.userAgent ?? '') {
-  const isAndroid = /Android/i.test(userAgent)
-  const fallbackUrl = isAndroid && item.playStoreUrl
+export function resolveLaunchTarget(item, platformKind = 'web') {
+  const fallbackUrl = platformKind === 'android' && item.playStoreUrl
     ? item.playStoreUrl
     : item.installUrl || item.url || null
 
   if (item.type === 'game' && item.launchUrl) {
     return {
-      mode: 'native-with-fallback',
-      nativeUrl: item.launchUrl,
+      appId: item.id,
+      type: 'protocol',
+      protocol: item.launchUrl,
       fallbackUrl,
     }
   }
 
   return {
-    mode: 'web',
-    nativeUrl: null,
+    appId: item.id,
+    type: 'url',
+    url: item.url || item.installUrl || item.playStoreUrl || null,
     fallbackUrl: item.url || item.installUrl || item.playStoreUrl || null,
   }
 }

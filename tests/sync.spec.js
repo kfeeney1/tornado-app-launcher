@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { signInTestUser } from './auth-helpers.js'
+import { signInTestUser, signOutTestUser } from './auth-helpers.js'
 
 test.describe('Tornado account sync', () => {
   test('portable appearance and launcher changes propagate to another active client', async ({ context, page }) => {
@@ -49,6 +49,34 @@ test.describe('Tornado account sync', () => {
     await expect(page.getByRole('status')).toContainText('Synced')
     const syncedTheme = await page.evaluate(() => JSON.parse(localStorage.getItem('tornado-test-cloud-v1:test-existing@tornado.test:appearance'))?.theme)
     expect(syncedTheme).toBe('light')
+  })
+
+  test('account switching never exposes the previous account portable configuration', async ({ page }) => {
+    await signInTestUser(page)
+    await page.getByRole('button', { name: 'Settings' }).click()
+    await page.getByRole('button', { name: 'Light' }).click()
+    await page.getByRole('button', { name: 'Profile' }).click()
+    await expect(page.getByRole('status')).toContainText('Synced')
+    await page.getByRole('button', { name: 'Sign Out' }).click()
+
+    await page.getByRole('button', { name: 'Create account' }).click()
+    await page.getByLabel('Email').fill('second-player@tornado.test')
+    await page.getByLabel('Password', { exact: true }).fill('Tornado123!')
+    await page.getByLabel('Confirm password').fill('Tornado123!')
+    await page.getByRole('button', { name: 'Create Account' }).click()
+    await expect(page.getByRole('heading', { name: 'Apps' })).toBeVisible()
+    await expect(page.locator('.app')).toHaveClass(/dark/)
+
+    const caches = await page.evaluate(() => ({
+      first: JSON.parse(localStorage.getItem('tornado-account-portable-v1:test-existing@tornado.test')),
+      second: JSON.parse(localStorage.getItem('tornado-account-portable-v1:test-second-player@tornado.test')),
+    }))
+    expect(caches.first.appearance.theme).toBe('light')
+    expect(caches.second.appearance.theme).toBe('dark')
+
+    await signOutTestUser(page)
+    await signInTestUser(page)
+    await expect(page.locator('.app')).toHaveClass(/light/)
   })
 
   test('sync status is exposed without blocking the launcher', async ({ page }) => {

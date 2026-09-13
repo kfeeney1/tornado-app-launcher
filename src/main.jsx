@@ -4,6 +4,7 @@ import App from './App.jsx'
 import AuthScreen, { AuthLoading } from './auth/AuthScreen.jsx'
 import { AuthProvider, useAuth } from './auth/AuthContext.jsx'
 import { CloudProfileProvider } from './cloud/CloudProfileContext.jsx'
+import { DeviceProvider } from './devices/DeviceContext.jsx'
 import { SyncProvider } from './sync/SyncContext.jsx'
 import './styles.css'
 
@@ -14,7 +15,9 @@ function TornadoRoot() {
   return user ? (
     <CloudProfileProvider>
       <SyncProvider key={user.uid}>
-        <App />
+        <DeviceProvider>
+          <App />
+        </DeviceProvider>
       </SyncProvider>
     </CloudProfileProvider>
   ) : <AuthScreen />

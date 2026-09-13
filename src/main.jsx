@@ -13,7 +13,7 @@ function TornadoRoot() {
   if (isLoading) return <AuthLoading />
   return user ? (
     <CloudProfileProvider>
-      <SyncProvider>
+      <SyncProvider key={user.uid}>
         <App />
       </SyncProvider>
     </CloudProfileProvider>

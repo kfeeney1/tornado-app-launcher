@@ -68,6 +68,20 @@ export function SyncProvider({ children }) {
       setStatus(SYNC_STATUS.SYNCED)
     }
 
+    const flushPending = async () => {
+      const pending = loadPendingDomains(uid)
+      if (!pending.size) return
+      setStatus(SYNC_STATUS.SYNCING)
+      for (const domain of pending) {
+        await backend.write(uid, domain, toDomain(portableRef.current, domain))
+        clearPending(uid, domain)
+      }
+      if (!active) return
+      setLastSyncedAt(new Date())
+      setStatus(SYNC_STATUS.SYNCED)
+      setMessage('')
+    }
+
     const initialise = async () => {
       try {
         const pairs = await Promise.all(DOMAINS.map(async domain => [domain, await backend.read(uid, domain)]))
@@ -111,7 +125,14 @@ export function SyncProvider({ children }) {
     }
 
     const onOffline = () => active && setStatus(SYNC_STATUS.OFFLINE)
-    const onOnline = () => active && setStatus(current => current === SYNC_STATUS.OFFLINE ? SYNC_STATUS.SYNCING : current)
+    const onOnline = () => {
+      if (!active) return
+      flushPending().catch(error => {
+        if (!active) return
+        setStatus(SYNC_STATUS.ERROR)
+        setMessage(error?.message || 'Tornado sync needs attention.')
+      })
+    }
     window.addEventListener('offline', onOffline)
     window.addEventListener('online', onOnline)
     initialise()

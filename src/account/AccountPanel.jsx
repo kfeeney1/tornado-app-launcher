@@ -141,7 +141,7 @@ export default function AccountPanel() {
 
   return <>
     <div className="panel account-section">
-      <h2>Profile</h2>
+      <h2>Display name</h2>
       <form onSubmit={saveDisplayName} className="account-form" noValidate>
         <label className="auth-field">
           <span>Display name</span>
@@ -199,7 +199,7 @@ export default function AccountPanel() {
 
     <div className="panel danger-zone">
       <h2>Danger zone</h2>
-      <p>Deleting your Tornado account permanently removes the account, cloud-synced launcher configuration, profile data and device registry. Device-specific Tornado settings on this device are preserved.</p>
+      <p>Deleting your Tornado account permanently removes the account, cloud-synced launcher configuration, profile data and device registry. Device-specific Tornado settings remain local and are preserved.</p>
       {!showDelete ? <button className="danger-action" onClick={() => setShowDelete(true)}>Delete Tornado account</button> :
         <form onSubmit={confirmDelete} className="account-form delete-confirmation" noValidate>
           <h3>Delete Tornado account?</h3>

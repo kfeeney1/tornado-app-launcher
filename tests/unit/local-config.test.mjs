@@ -29,7 +29,7 @@ test('portable and device defaults are explicit and versioned', () => {
   assert.equal(portable.schemaVersion, 1)
   assert.equal(portable.appearance.theme, 'dark')
   assert.ok(portable.launcher.selectedItemIds.includes('minecraft'))
-  assert.deepEqual(device, { schemaVersion: 1, platform: 'android', launchTargets: {}, nativePreferences: {} })
+  assert.deepEqual(device, { schemaVersion: 1, platform: 'android', installationId: null, launchTargets: {}, nativePreferences: {} })
   assert.equal('platform' in portable, false)
 })
 
@@ -54,6 +54,7 @@ test('device-specific state remains local across repeat loads', () => {
   const device = {
     schemaVersion: 1,
     platform: 'windows',
+    installationId: null,
     launchTargets: { minecraft: { executablePath: 'C:/Games/Minecraft.exe' } },
     nativePreferences: { monitor: 2 },
   }

@@ -1,11 +1,17 @@
 {
   "name": "tornado-app-launcher",
+  "productName": "Tornado",
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "main": "electron/main/index.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "desktop:dev": "node electron/scripts/dev.mjs",
+    "desktop:build": "npm run build && npx --yes electron-builder@26.15.3 --win --x64 --config electron-builder.yml",
+    "desktop:dir": "npm run build && npx --yes electron-builder@26.15.3 --dir --config electron-builder.yml",
+    "desktop:test": "node --test tests/platform-foundation.test.mjs tests/electron-security.test.mjs",
     "lint": "eslint .",
     "test": "playwright test",
     "test:smoke": "playwright test"

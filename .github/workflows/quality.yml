@@ -25,7 +25,25 @@ jobs:
       - run: npm run lint
       - run: node --check functions/index.js
       - run: node --test tests/unit/*.test.mjs
+      - run: npm run desktop:test
       - run: npm run build
       - run: npx --yes firebase-tools@latest emulators:exec --project demo-tornado-app-launcher --only auth,firestore "node --test tests/firestore-rules.test.mjs"
       - run: npx playwright install --with-deps chromium
       - run: npm run test:smoke
+
+  windows-desktop:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run desktop:test
+      - run: npm run desktop:build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tornado-windows-phase-1
+          path: release/*.exe
+          if-no-files-found: error

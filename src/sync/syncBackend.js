@@ -27,11 +27,19 @@ function testWrite(uid, domain, data) {
 }
 
 function testSubscribe(uid, domain, next) {
-  const onChange = event => {
+  const key = testKey(uid, domain)
+  const onCustom = event => {
     if (event.detail?.uid === uid && event.detail?.domain === domain) next(testRead(uid, domain))
   }
-  window.addEventListener('tornado-test-cloud-change', onChange)
-  return () => window.removeEventListener('tornado-test-cloud-change', onChange)
+  const onStorage = event => {
+    if (event.key === key) next(testRead(uid, domain))
+  }
+  window.addEventListener('tornado-test-cloud-change', onCustom)
+  window.addEventListener('storage', onStorage)
+  return () => {
+    window.removeEventListener('tornado-test-cloud-change', onCustom)
+    window.removeEventListener('storage', onStorage)
+  }
 }
 
 export function createSyncBackend() {

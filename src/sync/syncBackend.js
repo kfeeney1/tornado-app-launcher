@@ -5,6 +5,7 @@ import {
   setAppearanceConfig,
   setLauncherConfig,
   setPreferences,
+  setPortableConfigBatch,
   subscribeAppearanceConfig,
   subscribeLauncherConfig,
   subscribePreferences,
@@ -25,6 +26,17 @@ function testWrite(uid, domain, data) {
   if (navigator.onLine === false) throw new Error('sync/offline')
   localStorage.setItem(testKey(uid, domain), JSON.stringify(data))
   window.dispatchEvent(new CustomEvent('tornado-test-cloud-change', { detail: { uid, domain } }))
+}
+
+function testWriteMany(uid, entries) {
+  if (navigator.onLine === false) throw new Error('sync/offline')
+  const validated = Object.entries(entries).map(([domain, data]) => {
+    const result = classifyCloudDocument(domain, data)
+    if (result.status !== 'ready') throw new Error('cloud/invalid-config')
+    return [domain, result.data]
+  })
+  for (const [domain, data] of validated) localStorage.setItem(testKey(uid, domain), JSON.stringify(data))
+  for (const [domain] of validated) window.dispatchEvent(new CustomEvent('tornado-test-cloud-change', { detail: { uid, domain } }))
 }
 
 function testSubscribe(uid, domain, next) {
@@ -48,6 +60,7 @@ export function createSyncBackend() {
     return {
       read: async (uid, domain) => testRead(uid, domain),
       write: async (uid, domain, data) => testWrite(uid, domain, data),
+      writeMany: async (uid, entries) => testWriteMany(uid, entries),
       subscribe: async (uid, domain, next) => testSubscribe(uid, domain, next),
     }
   }
@@ -58,6 +71,7 @@ export function createSyncBackend() {
   return {
     read: (uid, domain) => readers[domain](uid),
     write: (uid, domain, data) => writers[domain](uid, data),
+    writeMany: (uid, entries) => setPortableConfigBatch(uid, entries),
     subscribe: (uid, domain, next, error) => subscribers[domain](uid, next, error),
   }
 }

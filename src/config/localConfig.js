@@ -50,6 +50,10 @@ function parseStoredJson(storage, key) {
   try { const raw = storage?.getItem(key); return raw == null ? null : JSON.parse(raw) } catch { return null }
 }
 
+function hasStoredValue(storage, key) {
+  try { return storage?.getItem(key) != null } catch { return false }
+}
+
 function safeWrite(storage, key, value) {
   try { if (!storage) return false; storage.setItem(key, JSON.stringify(value)); return true } catch { return false }
 }
@@ -87,6 +91,21 @@ export function migrateLegacyLocalConfig(storage = browserStorage(), platform = 
   }
 
   return { portable, device, migrated: !currentPortable || !currentDevice, unsupportedFutureSchema: portableFuture || deviceFuture }
+}
+
+export function inspectLocalPortableState(storage = browserStorage()) {
+  const hadVersionedPortable = hasStoredValue(storage, PORTABLE_CONFIG_STORAGE_KEY)
+  const hadLegacyTheme = hasStoredValue(storage, LEGACY_THEME_KEY)
+  const hadLegacySelection = hasStoredValue(storage, LEGACY_SELECTION_KEY)
+  const migration = migrateLegacyLocalConfig(storage)
+  const defaults = createDefaultPortableConfig()
+  const equivalentToDefaults = JSON.stringify(validatePortableConfig(migration.portable)) === JSON.stringify(validatePortableConfig(defaults))
+  const hadAnyPortableState = hadVersionedPortable || hadLegacyTheme || hadLegacySelection
+  return {
+    portable: migration.portable,
+    source: !hadAnyPortableState || (hadVersionedPortable && !hadLegacyTheme && !hadLegacySelection && equivalentToDefaults) ? 'fresh' : 'legacy',
+    unsupportedFutureSchema: migration.unsupportedFutureSchema,
+  }
 }
 
 export function getPortableConfig(storage = browserStorage()) { return migrateLegacyLocalConfig(storage).portable }

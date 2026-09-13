@@ -77,6 +77,20 @@ async function setConfig(uid, name, value) {
   return validation.data
 }
 
+export async function setPortableConfigBatch(uid, entries) {
+  assertUid(uid)
+  const validated = Object.entries(entries).map(([name, value]) => {
+    const result = classifyCloudDocument(name, value)
+    if (result.status !== 'ready') throw new Error('cloud/invalid-config')
+    return [name, result.data]
+  })
+  const { firestoreModule, db } = await getFirestoreModules()
+  const batch = firestoreModule.writeBatch(db)
+  for (const [name, value] of validated) batch.set(configRef(firestoreModule, db, uid, name), value)
+  await batch.commit()
+  return Object.fromEntries(validated)
+}
+
 export async function subscribeConfig(uid, name, onValue, onError) {
   assertUid(uid)
   const { firestoreModule, db } = await getFirestoreModules()

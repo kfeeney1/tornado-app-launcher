@@ -5,6 +5,7 @@ export type PlatformCapability =
   | 'native-app-launch'
   | 'local-filesystem'
   | 'installed-app-discovery'
+  | 'game-resolution'
   | 'desktop-window-controls'
   | 'native-notifications'
 
@@ -18,6 +19,7 @@ export type PlatformFailureReason =
   | 'open-failed'
   | 'launch-failed'
   | 'discovery-failed'
+  | 'resolution-failed'
 
 export type PlatformResult<T = true> =
   | { ok: true; value: T }
@@ -33,6 +35,12 @@ export interface InstalledApplication {
   source: 'start-menu' | 'windows'
 }
 
+export interface GameResolution {
+  appId: string
+  installed: boolean
+  launcher: 'minecraft-launcher' | 'roblox' | 'epic-games' | null
+}
+
 export interface TornadoPlatform {
   readonly kind: PlatformKind
   getPlatform(): PlatformKind
@@ -41,6 +49,7 @@ export interface TornadoPlatform {
   openExternal(url: string): Promise<PlatformResult>
   launchTarget(target: LaunchTarget): Promise<PlatformResult>
   getInstalledApps?(): Promise<PlatformResult<InstalledApplication[]>>
+  resolveGame?(appId: string): Promise<PlatformResult<GameResolution>>
 }
 
 export interface TornadoDesktopBridge {
@@ -48,6 +57,7 @@ export interface TornadoDesktopBridge {
   openExternal(url: string): Promise<boolean>
   launchNativeApp?(target: { appId: string; type: 'protocol' }): Promise<boolean>
   getInstalledApps?(): Promise<InstalledApplication[]>
+  resolveGame?(appId: string): Promise<GameResolution | null>
 }
 
 declare global {

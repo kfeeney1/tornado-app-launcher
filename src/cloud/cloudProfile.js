@@ -30,10 +30,34 @@ function configRef(firestoreModule, db, uid, name) {
   return firestoreModule.doc(db, 'users', uid, 'config', name)
 }
 
+function testProfileKey(uid) { return `tornado-test-profile-v1:${uid}` }
+
+function readTestProfile(uid) {
+  try { return JSON.parse(localStorage.getItem(testProfileKey(uid)) || 'null') } catch { return null }
+}
+
+function writeTestProfile(uid, profile) {
+  localStorage.setItem(testProfileKey(uid), JSON.stringify(profile))
+  window.dispatchEvent(new CustomEvent('tornado-test-profile-change', { detail: { uid } }))
+  return profile
+}
+
+function createTestProfile(user, existing = null) {
+  const now = new Date().toISOString()
+  return {
+    schemaVersion: PROFILE_SCHEMA_VERSION,
+    email: user.email ?? existing?.email ?? null,
+    displayName: existing?.displayName ?? user.displayName ?? null,
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now,
+  }
+}
+
 export async function ensureUserProfile(user) {
   if (!user?.uid) throw new Error('cloud/invalid-user')
   if (import.meta.env.VITE_AUTH_TEST_MODE === 'true') {
-    return { status: 'ready', data: { schemaVersion: PROFILE_SCHEMA_VERSION, email: user.email ?? null, displayName: user.displayName ?? null } }
+    const existing = readTestProfile(user.uid)
+    return { status: 'ready', data: existing ?? writeTestProfile(user.uid, createTestProfile(user)) }
   }
   const { firestoreModule, db } = await getFirestoreModules()
   const ref = profileRef(firestoreModule, db, user.uid)
@@ -53,11 +77,70 @@ export async function ensureUserProfile(user) {
 
 export async function getUserProfile(uid) {
   assertUid(uid)
+  if (import.meta.env.VITE_AUTH_TEST_MODE === 'true') {
+    const data = readTestProfile(uid)
+    return data ? { status: 'ready', data } : { status: 'missing', data: null }
+  }
   const { firestoreModule, db } = await getFirestoreModules()
   const snapshot = await firestoreModule.getDoc(profileRef(firestoreModule, db, uid))
   if (!snapshot.exists()) return { status: 'missing', data: null }
   const data = validateUserProfile(snapshot.data())
   return data ? { status: 'ready', data } : { status: 'malformed', data: null }
+}
+
+export async function updateUserProfileDisplayName(uid, displayName) {
+  assertUid(uid)
+  if (import.meta.env.VITE_AUTH_TEST_MODE === 'true') {
+    const current = readTestProfile(uid)
+    if (!current) throw new Error('cloud/profile-missing')
+    return writeTestProfile(uid, { ...current, displayName, updatedAt: new Date().toISOString() })
+  }
+  const { firestoreModule, db } = await getFirestoreModules()
+  await firestoreModule.updateDoc(profileRef(firestoreModule, db, uid), {
+    displayName,
+    updatedAt: firestoreModule.serverTimestamp(),
+  })
+  return getUserProfile(uid)
+}
+
+export async function syncUserProfileEmail(user) {
+  if (!user?.uid) throw new Error('cloud/invalid-user')
+  if (import.meta.env.VITE_AUTH_TEST_MODE === 'true') {
+    const current = readTestProfile(user.uid)
+    if (!current || current.email === (user.email ?? null)) return current
+    return writeTestProfile(user.uid, { ...current, email: user.email ?? null, updatedAt: new Date().toISOString() })
+  }
+  const { firestoreModule, db } = await getFirestoreModules()
+  const ref = profileRef(firestoreModule, db, user.uid)
+  const snapshot = await firestoreModule.getDoc(ref)
+  if (!snapshot.exists() || snapshot.data().email === (user.email ?? null)) return
+  await firestoreModule.updateDoc(ref, { email: user.email ?? null, updatedAt: firestoreModule.serverTimestamp() })
+}
+
+export async function subscribeUserProfile(uid, onValue, onError) {
+  assertUid(uid)
+  if (import.meta.env.VITE_AUTH_TEST_MODE === 'true') {
+    const key = testProfileKey(uid)
+    const emit = () => {
+      const data = readTestProfile(uid)
+      onValue(data ? { status: 'ready', data } : { status: 'missing', data: null })
+    }
+    const onCustom = event => { if (event.detail?.uid === uid) emit() }
+    const onStorage = event => { if (event.key === key) emit() }
+    window.addEventListener('tornado-test-profile-change', onCustom)
+    window.addEventListener('storage', onStorage)
+    queueMicrotask(emit)
+    return () => {
+      window.removeEventListener('tornado-test-profile-change', onCustom)
+      window.removeEventListener('storage', onStorage)
+    }
+  }
+  const { firestoreModule, db } = await getFirestoreModules()
+  return firestoreModule.onSnapshot(profileRef(firestoreModule, db, uid), snapshot => {
+    if (!snapshot.exists()) { onValue({ status: 'missing', data: null }); return }
+    const data = validateUserProfile(snapshot.data())
+    onValue(data ? { status: 'ready', data } : { status: 'malformed', data: null })
+  }, onError)
 }
 
 async function getConfig(uid, name) {

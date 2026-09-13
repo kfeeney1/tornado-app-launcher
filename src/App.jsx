@@ -4,7 +4,9 @@ import Navigation from './components/Navigation.jsx'
 import Clock from './components/Clock.jsx'
 import LauncherCard from './components/LauncherCard.jsx'
 import AppIcon from './components/AppIcon.jsx'
+import AccountPanel from './account/AccountPanel.jsx'
 import { useAuth } from './auth/AuthContext.jsx'
+import { useCloudProfile } from './cloud/CloudProfileContext.jsx'
 import { useSync } from './sync/SyncContext.jsx'
 
 const validViews = new Set(['home', 'store', 'profile', 'settings'])
@@ -20,17 +22,15 @@ function syncLabel(status) {
 }
 
 export default function App() {
-  const { user, signOut, resetPassword } = useAuth()
+  const { user } = useAuth()
+  const { profile } = useCloudProfile()
   const { portable, status: syncStatus, message: syncMessage, lastSyncedAt, setAppearance, setLauncher } = useSync()
   const [view, setView] = useState(historyView)
   const [query, setQuery] = useState('')
   const [download, setDownload] = useState(null)
-  const [accountError, setAccountError] = useState('')
-  const [accountMessage, setAccountMessage] = useState('')
-  const [signingOut, setSigningOut] = useState(false)
-  const [resettingPassword, setResettingPassword] = useState(false)
   const theme = portable.appearance.theme
   const selected = portable.launcher.selectedItemIds
+  const displayName = profile?.displayName || user?.displayName || 'Tornado account'
 
   useEffect(() => {
     if (!window.history.state?.tornadoSession) {
@@ -81,19 +81,6 @@ export default function App() {
     setDownload({ id: item.id, progress: 0 })
   }
 
-  const handleSignOut = async () => {
-    setAccountError(''); setAccountMessage(''); setSigningOut(true)
-    try { await signOut() } catch (error) { setAccountError(error.message); setSigningOut(false) }
-  }
-
-  const handlePasswordReset = async () => {
-    if (!user?.email) return
-    setAccountError(''); setAccountMessage(''); setResettingPassword(true)
-    try { await resetPassword(user.email); setAccountMessage('A password reset email has been requested for your Tornado account.') }
-    catch (error) { setAccountError(error.message) }
-    finally { setResettingPassword(false) }
-  }
-
   const filtered = useMemo(() => catalog.filter(item => `${item.name} ${item.type} ${item.description}`.toLowerCase().includes(query.toLowerCase())), [query])
   const chosen = type => selected.map(id => catalog.find(item => item.id === id)).filter(item => item?.type === type).slice(0, 5)
 
@@ -135,9 +122,9 @@ export default function App() {
 
         {view === 'profile' && <section>
           <PageHead title="Profile" text="Your Tornado account and synchronized launcher." onHome={() => navigate('home')} />
-          <div className="profile-card"><div className="avatar" aria-hidden="true">T</div><div><h2>Tornado account</h2><p>{user?.email}</p></div></div>
+          <div className="profile-card"><div className="avatar" aria-hidden="true">{displayName.slice(0, 1).toUpperCase()}</div><div><h2>{displayName}</h2><p>{user?.email}</p><small className="verification-label">{user?.emailVerified ? 'Verified email' : 'Email not verified'}</small></div></div>
           <div className="panel"><h2>Tornado Sync</h2><p role="status"><strong>{syncLabel(syncStatus)}</strong>{lastSyncedAt && syncStatus === 'synced' ? ` · Last synced ${lastSyncedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}</p>{syncMessage && <p className="field-help">{syncMessage}</p>}<p className="field-help">Apps, games, launcher order and portable appearance settings follow this account. Device launch capabilities remain local.</p></div>
-          <div className="panel"><h2>Account</h2><p>Signed in as <strong>{user?.email}</strong>.</p>{accountError && <div className="auth-message error" role="alert">{accountError}</div>}{accountMessage && <div className="auth-message success" role="status">{accountMessage}</div>}<div className="account-actions"><button onClick={handlePasswordReset} className="secondary-action" disabled={resettingPassword || signingOut}>{resettingPassword ? 'Requesting reset…' : 'Reset Password'}</button><button onClick={handleSignOut} className="danger-action" disabled={signingOut || resettingPassword}>{signingOut ? 'Signing out…' : 'Sign Out'}</button></div></div>
+          <AccountPanel />
           <div className="panel"><h2>Launcher</h2><p>{selected.length} items currently pinned and stored in your account-scoped local cache.</p></div>
         </section>}
       </main>

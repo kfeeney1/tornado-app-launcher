@@ -53,6 +53,19 @@ function launcherFields() {
   }
 }
 
+function deviceFields(deviceId) {
+  return {
+    schemaVersion: integerValue(1),
+    deviceId: stringValue(deviceId),
+    platform: stringValue('web'),
+    deviceName: stringValue('Chrome on Windows'),
+    clientType: stringValue('browser'),
+    appVersion: stringValue('0.1.0'),
+    createdAt: timestampValue('2026-09-13T10:00:00Z'),
+    lastSeenAt: timestampValue('2026-09-13T10:00:00Z'),
+  }
+}
+
 test('users can access only their own profile and config documents', async () => {
   const userA = await createUser(`user-a-${Date.now()}@tornado.test`)
   const userB = await createUser(`user-b-${Date.now()}@tornado.test`)
@@ -61,32 +74,44 @@ test('users can access only their own profile and config documents', async () =>
 
   let response = await request(userAPath, { token: userA.idToken, method: 'PATCH', fields: profileFields(userA.email) })
   assert.equal(response.ok, true, await response.text())
-
-  response = await request(userAPath, { token: userA.idToken })
-  assert.equal(response.ok, true, await response.text())
-
   response = await request(userAPath, { token: userB.idToken })
   assert.equal(response.status, 403)
-
   response = await request(userAPath)
   assert.equal(response.status, 403)
-
   response = await request(userBPath, { token: userA.idToken, method: 'PATCH', fields: profileFields(userB.email) })
   assert.equal(response.status, 403)
 
   const configPath = `${userAPath}/config/launcher`
   response = await request(configPath, { token: userA.idToken, method: 'PATCH', fields: launcherFields() })
   assert.equal(response.ok, true, await response.text())
-
-  response = await request(configPath, { token: userA.idToken })
-  assert.equal(response.ok, true, await response.text())
-
   response = await request(configPath, { token: userB.idToken })
   assert.equal(response.status, 403)
-
   response = await request(configPath)
   assert.equal(response.status, 403)
+})
 
-  response = await request(`${userBPath}/config/launcher`, { token: userA.idToken, method: 'PATCH', fields: launcherFields() })
+test('device registry is private per account and validates document ownership', async () => {
+  const userA = await createUser(`device-a-${Date.now()}@tornado.test`)
+  const userB = await createUser(`device-b-${Date.now()}@tornado.test`)
+  const deviceId = '11111111-1111-4111-8111-111111111111'
+  const userADevice = `users/${userA.localId}/devices/${deviceId}`
+  const userBDevice = `users/${userB.localId}/devices/${deviceId}`
+
+  let response = await request(userADevice, { token: userA.idToken, method: 'PATCH', fields: deviceFields(deviceId) })
+  assert.equal(response.ok, true, await response.text())
+  response = await request(userADevice, { token: userA.idToken })
+  assert.equal(response.ok, true, await response.text())
+  response = await request(userADevice, { token: userB.idToken })
   assert.equal(response.status, 403)
+  response = await request(userADevice)
+  assert.equal(response.status, 403)
+  response = await request(userBDevice, { token: userA.idToken, method: 'PATCH', fields: deviceFields(deviceId) })
+  assert.equal(response.status, 403)
+
+  const mismatched = deviceFields('22222222-2222-4222-8222-222222222222')
+  response = await request(userADevice, { token: userA.idToken, method: 'PATCH', fields: mismatched })
+  assert.equal(response.status, 403)
+
+  response = await request(userADevice, { token: userA.idToken, method: 'DELETE' })
+  assert.equal(response.ok, true, await response.text())
 })

@@ -25,7 +25,7 @@ export function detectPlatform(userAgent = globalThis.navigator?.userAgent ?? ''
 }
 
 export function createDefaultDeviceConfig(platform = detectPlatform()) {
-  return { schemaVersion: 1, platform, launchTargets: {}, nativePreferences: {} }
+  return { schemaVersion: 1, platform, installationId: null, launchTargets: {}, nativePreferences: {} }
 }
 
 export function validatePortableConfig(value) {
@@ -42,8 +42,9 @@ export function validatePortableConfig(value) {
 export function validateDeviceConfig(value) {
   if (!isObject(value) || value.schemaVersion !== 1) return null
   if (!['web', 'android', 'windows', 'unknown'].includes(value.platform)) return null
+  if (value.installationId != null && typeof value.installationId !== 'string') return null
   if (!isObject(value.launchTargets) || !isObject(value.nativePreferences)) return null
-  return { schemaVersion: 1, platform: value.platform, launchTargets: { ...value.launchTargets }, nativePreferences: { ...value.nativePreferences } }
+  return { schemaVersion: 1, platform: value.platform, installationId: value.installationId ?? null, launchTargets: { ...value.launchTargets }, nativePreferences: { ...value.nativePreferences } }
 }
 
 function parseStoredJson(storage, key) {

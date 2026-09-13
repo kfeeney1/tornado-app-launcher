@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, shell } = require('electron')
 const path = require('node:path')
 const { pathToFileURL } = require('node:url')
 const { resolveNativeLaunchTarget } = require('./nativeLaunch.cjs')
+const { discoverInstalledApps } = require('./installedApps.cjs')
 
 const DEV_RENDERER_URL = process.env.TORNADO_RENDERER_URL || ''
 const isDev = Boolean(DEV_RENDERER_URL)
@@ -37,6 +38,8 @@ function registerIpc() {
     await shell.openExternal(target)
     return true
   })
+
+  ipcMain.handle('platform:get-installed-apps', async () => discoverInstalledApps())
 }
 
 function createWindow() {

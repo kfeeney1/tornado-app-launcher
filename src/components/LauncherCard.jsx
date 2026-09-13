@@ -1,18 +1,14 @@
 import AppIcon from './AppIcon.jsx'
 import { platform, PLATFORM_CAPABILITIES } from '../platform/index.js'
 import { resolveLaunchTarget } from '../platform/launchResolver.js'
+import { launchApp } from '../platform/launchService.js'
 
 export default function LauncherCard({ item, onRemove }) {
   const target = resolveLaunchTarget(item, platform.kind)
   const nativeLaunchAvailable = target.type !== 'protocol' || platform.can(PLATFORM_CAPABILITIES.NATIVE_APP_LAUNCH)
 
   const launch = async () => {
-    if (target.type === 'protocol' && nativeLaunchAvailable) {
-      const result = await platform.launchTarget(target)
-      if (result?.ok) return
-    }
-
-    if (target.fallbackUrl) await platform.openExternal(target.fallbackUrl)
+    await launchApp(item, platform)
   }
 
   return <article className="launcher-card">

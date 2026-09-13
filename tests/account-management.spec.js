@@ -108,7 +108,7 @@ test('verification action is available without blocking launcher use', async ({ 
   await expect(page.getByText('Email not verified').first()).toBeVisible()
   await page.getByRole('button', { name: 'Send verification email' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Verification email sent.' })).toBeVisible()
-  await page.getByRole('button', { name: 'Home' }).click()
+  await page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'Home' }).click()
   await expect(page.getByRole('heading', { name: 'Apps' })).toBeVisible()
 })
 

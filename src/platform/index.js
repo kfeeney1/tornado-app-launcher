@@ -1,41 +1,35 @@
-function electronBridge() {
-  return typeof window !== 'undefined' ? window.tornadoPlatform : undefined
+import { PLATFORM_KINDS } from './contracts.js'
+import { createAndroidAdapter } from './adapters/android.js'
+import { createWebAdapter } from './adapters/web.js'
+import { createWindowsAdapter } from './adapters/windows.js'
+
+function getRuntimeWindow(runtime) {
+  return runtime?.window ?? (typeof window !== 'undefined' ? window : undefined)
 }
 
-function capacitorPlatform() {
-  if (typeof window === 'undefined') return null
-  const capacitor = window.Capacitor
-  if (!capacitor || typeof capacitor.getPlatform !== 'function') return null
-  return capacitor.getPlatform()
+export function createPlatform(runtime = globalThis) {
+  const runtimeWindow = getRuntimeWindow(runtime)
+  const bridge = runtimeWindow?.tornadoPlatform
+  if (bridge?.getPlatform?.() === PLATFORM_KINDS.WINDOWS && typeof bridge.openExternal === 'function') {
+    return createWindowsAdapter(bridge)
+  }
+
+  const capacitor = runtimeWindow?.Capacitor
+  if (capacitor && typeof capacitor.getPlatform === 'function' && capacitor.getPlatform() === PLATFORM_KINDS.ANDROID) {
+    return createAndroidAdapter(capacitor)
+  }
+
+  return createWebAdapter({ ...runtime, window: runtimeWindow })
 }
 
-export function getPlatform() {
-  const bridge = electronBridge()
-  if (bridge?.getPlatform?.() === 'windows') return 'windows'
+export const platform = createPlatform()
 
-  const capacitor = capacitorPlatform()
-  if (capacitor === 'android') return 'android'
-  if (capacitor === 'ios') return 'ios'
-  return 'web'
-}
+export const getPlatform = () => platform.getPlatform()
+export const getCapabilities = () => platform.getCapabilities()
+export const can = capability => platform.can(capability)
+export const openExternal = url => platform.openExternal(url)
+export const isDesktop = () => platform.kind === PLATFORM_KINDS.WINDOWS
+export const isWeb = () => platform.kind === PLATFORM_KINDS.WEB
+export const isAndroid = () => platform.kind === PLATFORM_KINDS.ANDROID
 
-export function isDesktop() {
-  return getPlatform() === 'windows'
-}
-
-export function isWeb() {
-  return getPlatform() === 'web'
-}
-
-export function isAndroid() {
-  return getPlatform() === 'android'
-}
-
-export async function openExternal(url) {
-  const bridge = electronBridge()
-  if (bridge?.openExternal) return bridge.openExternal(url)
-
-  if (typeof window === 'undefined') return false
-  const opened = window.open(url, '_blank', 'noopener,noreferrer')
-  return Boolean(opened)
-}
+export { PLATFORM_CAPABILITIES, PLATFORM_KINDS, UnsupportedPlatformOperationError } from './contracts.js'

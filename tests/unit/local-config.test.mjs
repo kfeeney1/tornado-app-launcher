@@ -102,11 +102,12 @@ test('portable and device updates do not overwrite each other', () => {
 })
 
 test('platform resolver keeps Android fallback outside portable configuration', () => {
-  const item = { type: 'game', launchUrl: 'roblox://', installUrl: 'https://www.roblox.com/download', playStoreUrl: 'https://play.google.com/roblox' }
-  assert.deepEqual(resolveLaunchTarget(item, 'Android'), {
-    mode: 'native-with-fallback',
-    nativeUrl: 'roblox://',
+  const item = { id: 'roblox', type: 'game', launchUrl: 'roblox://', installUrl: 'https://www.roblox.com/download', playStoreUrl: 'https://play.google.com/roblox' }
+  assert.deepEqual(resolveLaunchTarget(item, 'android'), {
+    appId: 'roblox',
+    type: 'protocol',
+    protocol: 'roblox://',
     fallbackUrl: 'https://play.google.com/roblox',
   })
-  assert.equal(resolveLaunchTarget(item, 'Windows').fallbackUrl, 'https://www.roblox.com/download')
+  assert.equal(resolveLaunchTarget(item, 'windows').fallbackUrl, 'https://www.roblox.com/download')
 })

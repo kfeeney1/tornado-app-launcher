@@ -15,8 +15,7 @@ const WRITE_DELAY_MS = 250
 export function SyncProvider({ children }) {
   const { user } = useAuth()
   const uid = user.uid
-  const initialState = useRef(loadAccountPortableState(uid))
-  const [portable, setPortable] = useState(initialState.current.portable)
+  const [portable, setPortable] = useState(() => loadAccountPortableState(uid).portable)
   const [status, setStatus] = useState(() => navigator.onLine === false ? SYNC_STATUS.OFFLINE : SYNC_STATUS.INITIALIZING)
   const [message, setMessage] = useState('')
   const [lastSyncedAt, setLastSyncedAt] = useState(null)

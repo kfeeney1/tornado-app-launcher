@@ -40,13 +40,17 @@ export function validatePreferencesConfig(data) {
 }
 
 export function classifyCloudDocument(name, data) {
-  const validators = {
-    appearance: validateAppearanceConfig,
-    launcher: validateLauncherConfig,
-    preferences: validatePreferencesConfig,
+  const entries = {
+    appearance: [APPEARANCE_SCHEMA_VERSION, validateAppearanceConfig],
+    launcher: [LAUNCHER_SCHEMA_VERSION, validateLauncherConfig],
+    preferences: [PREFERENCES_SCHEMA_VERSION, validatePreferencesConfig],
   }
-  const validator = validators[name]
-  if (!validator) return { status: 'unsupported', data: null }
+  const entry = entries[name]
+  if (!entry) return { status: 'unsupported', data: null }
+  const [currentVersion, validator] = entry
+  if (isObject(data) && Number.isInteger(data.schemaVersion) && data.schemaVersion > currentVersion) {
+    return { status: 'unsupported', data: null }
+  }
   const validated = validator(data)
   return validated ? { status: 'ready', data: validated } : { status: 'malformed', data: null }
 }

@@ -1,0 +1,17 @@
+appId: ie.tornado.launcher
+productName: Tornado
+electronVersion: 44.3.0
+asar: true
+directories:
+  output: release
+files:
+  - dist/**/*
+  - electron/main/**/*
+  - electron/preload/**/*
+  - package.json
+win:
+  target:
+    - target: portable
+      arch:
+        - x64
+artifactName: Tornado-${version}-${arch}.${ext}

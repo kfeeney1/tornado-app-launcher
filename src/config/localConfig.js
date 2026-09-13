@@ -78,7 +78,12 @@ export function migrateLegacyLocalConfig(storage = browserStorage(), platform = 
   const portableWritten = currentPortable || portableFuture ? true : safeWrite(storage, PORTABLE_CONFIG_STORAGE_KEY, portable)
   const deviceWritten = currentDevice || deviceFuture ? true : safeWrite(storage, DEVICE_CONFIG_STORAGE_KEY, device)
   if (!portableFuture && !deviceFuture && portableWritten && deviceWritten) {
-    try { storage?.removeItem(LEGACY_THEME_KEY); storage?.removeItem(LEGACY_SELECTION_KEY) } catch {}
+    try {
+      storage?.removeItem(LEGACY_THEME_KEY)
+      storage?.removeItem(LEGACY_SELECTION_KEY)
+    } catch {
+      // Versioned data is already durable; legacy cleanup is best-effort.
+    }
   }
 
   return { portable, device, migrated: !currentPortable || !currentDevice, unsupportedFutureSchema: portableFuture || deviceFuture }

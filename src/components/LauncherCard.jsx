@@ -1,19 +1,11 @@
 import AppIcon from './AppIcon.jsx'
+import { resolveLaunchTarget } from '../platform/launchResolver.js'
 
 const openWeb = url => {
   if (url) window.open(url, '_blank', 'noopener,noreferrer')
 }
 
-const launchGame = item => {
-  const fallbackUrl = /Android/i.test(navigator.userAgent) && item.playStoreUrl
-    ? item.playStoreUrl
-    : item.installUrl
-
-  if (!item.launchUrl) {
-    openWeb(fallbackUrl || item.url)
-    return
-  }
-
+const launchGame = target => {
   let fallbackTimer
   const stopFallback = () => {
     if (!document.hidden) return
@@ -24,15 +16,16 @@ const launchGame = item => {
   document.addEventListener('visibilitychange', stopFallback)
   fallbackTimer = window.setTimeout(() => {
     document.removeEventListener('visibilitychange', stopFallback)
-    openWeb(fallbackUrl)
+    openWeb(target.fallbackUrl)
   }, 1400)
 
-  window.location.assign(item.launchUrl)
+  window.location.assign(target.nativeUrl)
 }
 
 export default function LauncherCard({ item, onRemove }) {
-  const nativeGame = item.type === 'game' && Boolean(item.launchUrl)
-  const launch = () => nativeGame ? launchGame(item) : openWeb(item.url || item.installUrl)
+  const target = resolveLaunchTarget(item)
+  const nativeGame = target.mode === 'native-with-fallback'
+  const launch = () => nativeGame ? launchGame(target) : openWeb(target.fallbackUrl)
 
   return <article className="launcher-card">
     <button className="launch-target" onClick={launch} aria-label={`Launch ${item.name}`}>

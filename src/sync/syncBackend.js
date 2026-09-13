@@ -22,6 +22,7 @@ function testRead(uid, domain) {
 }
 
 function testWrite(uid, domain, data) {
+  if (navigator.onLine === false) throw new Error('sync/offline')
   localStorage.setItem(testKey(uid, domain), JSON.stringify(data))
   window.dispatchEvent(new CustomEvent('tornado-test-cloud-change', { detail: { uid, domain } }))
 }

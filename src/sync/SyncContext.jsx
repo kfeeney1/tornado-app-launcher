@@ -39,6 +39,8 @@ export function SyncProvider({ children }) {
     }
 
     let active = true
+    let initialized = false
+    let initializing = false
     const unsubscribers = []
     const backend = createSyncBackend()
     backendRef.current = backend
@@ -83,6 +85,8 @@ export function SyncProvider({ children }) {
     }
 
     const initialise = async () => {
+      if (initializing || initialized || !active) return
+      initializing = true
       try {
         const pairs = await Promise.all(DOMAINS.map(async domain => [domain, await backend.read(uid, domain)]))
         if (!active) return
@@ -110,6 +114,7 @@ export function SyncProvider({ children }) {
           if (typeof unsubscribe === 'function') unsubscribers.push(unsubscribe)
         }
 
+        initialized = true
         if (result.blocked.length) {
           setStatus(SYNC_STATUS.ERROR)
           setMessage('Some synced settings use an unsupported or malformed format.')
@@ -121,13 +126,16 @@ export function SyncProvider({ children }) {
         if (!active) return
         setStatus(navigator.onLine === false ? SYNC_STATUS.OFFLINE : SYNC_STATUS.ERROR)
         setMessage(error?.message || 'Tornado sync needs attention.')
+      } finally {
+        initializing = false
       }
     }
 
     const onOffline = () => active && setStatus(SYNC_STATUS.OFFLINE)
     const onOnline = () => {
       if (!active) return
-      flushPending().catch(error => {
+      const action = initialized ? flushPending() : initialise()
+      action.catch(error => {
         if (!active) return
         setStatus(SYNC_STATUS.ERROR)
         setMessage(error?.message || 'Tornado sync needs attention.')

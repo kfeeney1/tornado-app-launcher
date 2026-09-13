@@ -4,11 +4,12 @@ const { pathToFileURL } = require('node:url')
 
 const DEV_RENDERER_URL = process.env.TORNADO_RENDERER_URL || ''
 const isDev = Boolean(DEV_RENDERER_URL)
+const ALLOWED_EXTERNAL_PROTOCOLS = new Set(['https:', 'http:', 'mailto:'])
 
 function isAllowedExternalUrl(value) {
   try {
     const url = new URL(value)
-    return url.protocol === 'https:' || url.protocol === 'http:'
+    return ALLOWED_EXTERNAL_PROTOCOLS.has(url.protocol)
   } catch {
     return false
   }

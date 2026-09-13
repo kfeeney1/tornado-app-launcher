@@ -11,6 +11,7 @@ export interface TornadoPortableConfig {
 export interface TornadoDeviceConfig {
   schemaVersion: 1
   platform: TornadoPlatform
+  installationId: string | null
   launchTargets: { [itemId: string]: unknown }
   nativePreferences: { [key: string]: unknown }
 }

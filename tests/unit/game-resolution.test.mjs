@@ -27,10 +27,8 @@ test('resolves Fortnite from bounded Epic manifest evidence, not launcher presen
 })
 
 test('Epic manifest location is narrowly scoped under ProgramData', () => {
-  assert.equal(
-    getEpicManifestRoot({ PROGRAMDATA: 'C:\\ProgramData' }),
-    'C:\\ProgramData/Epic/EpicGamesLauncher/Data/Manifests'.replaceAll('/', '\\'),
-  )
+  const root = getEpicManifestRoot({ PROGRAMDATA: 'C:\\ProgramData' }).replaceAll('\\', '/')
+  assert.equal(root, 'C:/ProgramData/Epic/EpicGamesLauncher/Data/Manifests')
 })
 
 test('Windows adapter exposes sanitized game resolution without paths', async () => {

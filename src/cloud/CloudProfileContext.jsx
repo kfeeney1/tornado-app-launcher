@@ -41,7 +41,7 @@ export function CloudProfileProvider({ children }) {
       active = false
       unsubscribe()
     }
-  }, [user?.uid, user?.email])
+  }, [user])
 
   const updateDisplayName = useCallback(async displayName => {
     if (!user?.uid) throw new Error('Your Tornado account is no longer available.')

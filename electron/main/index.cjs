@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron')
 const path = require('node:path')
 const { pathToFileURL } = require('node:url')
+const { resolveNativeLaunchTarget } = require('./nativeLaunch.cjs')
 
 const DEV_RENDERER_URL = process.env.TORNADO_RENDERER_URL || ''
 const isDev = Boolean(DEV_RENDERER_URL)
@@ -27,6 +28,13 @@ function registerIpc() {
       throw new Error('Unsupported external URL')
     }
     await shell.openExternal(value)
+    return true
+  })
+
+  ipcMain.handle('platform:launch-native-app', async (_event, payload) => {
+    const target = resolveNativeLaunchTarget(payload)
+    if (!target) throw new Error('Unsupported native launch target')
+    await shell.openExternal(target)
     return true
   })
 }

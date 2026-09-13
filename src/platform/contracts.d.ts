@@ -8,9 +8,20 @@ export type PlatformCapability =
   | 'desktop-window-controls'
   | 'native-notifications'
 
+export type PlatformFailureReason =
+  | 'unsupported'
+  | 'invalid-url'
+  | 'invalid-target'
+  | 'blocked'
+  | 'bridge-unavailable'
+  | 'plugin-unavailable'
+  | 'open-failed'
+  | 'launch-failed'
+  | 'discovery-failed'
+
 export type PlatformResult<T = true> =
   | { ok: true; value: T }
-  | { ok: false; reason: 'unsupported' | 'invalid-url' | 'blocked' | 'bridge-unavailable' | 'plugin-unavailable' | 'open-failed'; capability?: PlatformCapability; platform?: PlatformKind }
+  | { ok: false; reason: PlatformFailureReason; capability?: PlatformCapability; platform?: PlatformKind }
 
 export type LaunchTarget =
   | { type: 'url'; appId: string; url: string | null; fallbackUrl?: string | null }
@@ -18,11 +29,8 @@ export type LaunchTarget =
   | { type: 'registered-app'; appId: string }
 
 export interface InstalledApplication {
-  id: string
-  name: string
-  icon?: string
-  source?: string
-  launchTarget?: LaunchTarget
+  appId: string
+  source: 'start-menu' | 'windows'
 }
 
 export interface TornadoPlatform {
@@ -32,11 +40,14 @@ export interface TornadoPlatform {
   can(capability: PlatformCapability): boolean
   openExternal(url: string): Promise<PlatformResult>
   launchTarget(target: LaunchTarget): Promise<PlatformResult>
+  getInstalledApps?(): Promise<PlatformResult<InstalledApplication[]>>
 }
 
 export interface TornadoDesktopBridge {
   getPlatform(): 'windows'
   openExternal(url: string): Promise<boolean>
+  launchNativeApp?(target: { appId: string; type: 'protocol' }): Promise<boolean>
+  getInstalledApps?(): Promise<InstalledApplication[]>
 }
 
 declare global {

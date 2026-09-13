@@ -1,33 +1,54 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { getPlatform, isAndroid, isDesktop, isWeb, openExternal } from '../src/platform/index.js'
+import { createPlatform, PLATFORM_CAPABILITIES } from '../src/platform/index.js'
 
-test('defaults to web outside native shells', async () => {
-  global.window = { open: () => ({}) }
-  assert.equal(getPlatform(), 'web')
-  assert.equal(isWeb(), true)
-  assert.equal(isDesktop(), false)
-  assert.equal(isAndroid(), false)
-  assert.equal(await openExternal('https://example.com'), true)
-})
-
-test('detects the restricted Electron bridge as Windows', async () => {
+test('normal browser selects Web and opens allowed external URLs', async () => {
   let opened = null
-  global.window = {
-    tornadoPlatform: {
-      getPlatform: () => 'windows',
-      openExternal: async url => { opened = url; return true },
-    },
-  }
-  assert.equal(getPlatform(), 'windows')
-  assert.equal(isDesktop(), true)
-  assert.equal(await openExternal('https://example.com/path'), true)
-  assert.equal(opened, 'https://example.com/path')
+  const web = createPlatform({ window: { open: url => { opened = url; return {} } } })
+  assert.equal(web.kind, 'web')
+  assert.equal(web.can(PLATFORM_CAPABILITIES.OPEN_EXTERNAL), true)
+  assert.equal(web.can(PLATFORM_CAPABILITIES.NATIVE_APP_LAUNCH), false)
+  assert.deepEqual(await web.openExternal('https://example.com'), { ok: true, value: true })
+  assert.equal(opened, 'https://example.com')
+  assert.equal((await web.openExternal('javascript:alert(1)')).reason, 'invalid-url')
 })
 
-test('recognises a Capacitor Android runtime without Electron', () => {
-  global.window = { Capacitor: { getPlatform: () => 'android' } }
-  assert.equal(getPlatform(), 'android')
-  assert.equal(isAndroid(), true)
-  assert.equal(isDesktop(), false)
+test('restricted Electron bridge selects Windows', async () => {
+  let opened = null
+  const windows = createPlatform({ window: { tornadoPlatform: {
+    getPlatform: () => 'windows',
+    openExternal: async url => { opened = url; return true },
+  } } })
+  assert.equal(windows.kind, 'windows')
+  assert.equal(windows.can(PLATFORM_CAPABILITIES.OPEN_EXTERNAL), true)
+  assert.equal(windows.can(PLATFORM_CAPABILITIES.NATIVE_APP_LAUNCH), false)
+  assert.deepEqual(await windows.openExternal('mailto:test@example.com'), { ok: true, value: true })
+  assert.equal(opened, 'mailto:test@example.com')
+})
+
+test('missing or incomplete Electron bridge falls back safely to Web', () => {
+  const platform = createPlatform({ window: { tornadoPlatform: { getPlatform: () => 'windows' }, open: () => ({}) } })
+  assert.equal(platform.kind, 'web')
+})
+
+test('Capacitor Android selects Android and uses Browser plugin when available', async () => {
+  let opened = null
+  const android = createPlatform({ window: { Capacitor: {
+    getPlatform: () => 'android',
+    Plugins: { Browser: { open: async ({ url }) => { opened = url } } },
+  } } })
+  assert.equal(android.kind, 'android')
+  assert.equal(android.can(PLATFORM_CAPABILITIES.OPEN_EXTERNAL), true)
+  assert.deepEqual(await android.openExternal('https://example.com/android'), { ok: true, value: true })
+  assert.equal(opened, 'https://example.com/android')
+})
+
+test('unsupported native launch is explicit on every Phase 2 adapter', async () => {
+  const platform = createPlatform({ window: { open: () => ({}) } })
+  assert.deepEqual(await platform.launchTarget({ type: 'registered-app', appId: 'roblox' }), {
+    ok: false,
+    reason: 'unsupported',
+    capability: 'native-app-launch',
+    platform: 'web',
+  })
 })

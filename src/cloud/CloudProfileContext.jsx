@@ -47,7 +47,7 @@ export function CloudProfileProvider({ children }) {
     if (!user?.uid) throw new Error('Your Tornado account is no longer available.')
     await updateUserProfileDisplayName(user.uid, displayName)
     await updateAuthDisplayName(displayName)
-  }, [user?.uid, updateAuthDisplayName])
+  }, [user, updateAuthDisplayName])
 
   const value = useMemo(() => ({ ...state, updateDisplayName }), [state, updateDisplayName])
   return <CloudProfileContext.Provider value={value}>{children}</CloudProfileContext.Provider>

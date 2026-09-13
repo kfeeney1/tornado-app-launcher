@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import App from './App.jsx'
+import AppWithDevices from './devices/AppWithDevices.jsx'
 import AuthScreen, { AuthLoading } from './auth/AuthScreen.jsx'
 import { AuthProvider, useAuth } from './auth/AuthContext.jsx'
 import { CloudProfileProvider } from './cloud/CloudProfileContext.jsx'
@@ -16,7 +16,7 @@ function TornadoRoot() {
     <CloudProfileProvider>
       <SyncProvider key={user.uid}>
         <DeviceProvider>
-          <App />
+          <AppWithDevices />
         </DeviceProvider>
       </SyncProvider>
     </CloudProfileProvider>

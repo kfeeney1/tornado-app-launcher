@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test'
 import { signInTestUser, signOutTestUser } from './auth-helpers.js'
 
 test('existing legacy launcher configuration survives the Stage 3 upgrade and reload', async ({ page }) => {
-  await page.addInitScript(() => {
+  await page.goto('/')
+  await page.evaluate(() => {
     localStorage.setItem('tornado-theme', JSON.stringify('light'))
     localStorage.setItem('tornado-selection', JSON.stringify(['spotify', 'roblox', 'browser', 'minecraft']))
   })
@@ -10,8 +11,8 @@ test('existing legacy launcher configuration survives the Stage 3 upgrade and re
   await signInTestUser(page)
   await expect(page.locator('.app')).toHaveClass(/light/)
 
-  const appNames = await page.locator('.launcher-section').filter({ hasText: 'Apps' }).locator('.launcher-card span').allTextContents()
-  const gameNames = await page.locator('.launcher-section').filter({ hasText: 'Games' }).locator('.launcher-card span').allTextContents()
+  const appNames = await page.locator('.launcher-section').filter({ hasText: 'Apps' }).locator('.launch-target').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label')?.replace('Launch ', '')))
+  const gameNames = await page.locator('.launcher-section').filter({ hasText: 'Games' }).locator('.launch-target').evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label')?.replace('Launch ', '')))
   expect(appNames).toEqual(['Spotify', 'Browser'])
   expect(gameNames).toEqual(['Roblox', 'Minecraft'])
 

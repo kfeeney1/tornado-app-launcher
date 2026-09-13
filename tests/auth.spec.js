@@ -33,14 +33,14 @@ test('valid sign in persists across reload', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Apps' })).toBeVisible()
 })
 
-test('sign out returns to login without clearing launcher preferences', async ({ page }) => {
+test('sign out returns to login without clearing the account-scoped launcher cache', async ({ page }) => {
   await signInTestUser(page)
   await page.getByRole('button', { name: 'Settings' }).click()
   await page.getByRole('button', { name: 'Light' }).click()
   await signOutTestUser(page)
 
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
-  const portableConfig = await page.evaluate(() => JSON.parse(localStorage.getItem('tornado-portable-config-v1')))
+  const portableConfig = await page.evaluate(() => JSON.parse(localStorage.getItem('tornado-account-portable-v1:test-existing@tornado.test')))
   expect(portableConfig.appearance.theme).toBe('light')
   await expect(page.evaluate(() => localStorage.getItem('tornado-theme'))).resolves.toBeNull()
 })

@@ -3,7 +3,6 @@ import { APPEARANCE_SCHEMA_VERSION, LAUNCHER_SCHEMA_VERSION, PREFERENCES_SCHEMA_
 const firebaseVersion = '11.10.0'
 const appModuleUrl = `https://www.gstatic.com/firebasejs/${firebaseVersion}/firebase-app.js`
 const firestoreModuleUrl = `https://www.gstatic.com/firebasejs/${firebaseVersion}/firebase-firestore.js`
-
 let firestorePromise = null
 
 async function getFirestoreModules() {
@@ -36,7 +35,6 @@ export async function ensureUserProfile(user) {
   if (import.meta.env.VITE_AUTH_TEST_MODE === 'true') {
     return { status: 'ready', data: { schemaVersion: PROFILE_SCHEMA_VERSION, email: user.email ?? null, displayName: user.displayName ?? null } }
   }
-
   const { firestoreModule, db } = await getFirestoreModules()
   const ref = profileRef(firestoreModule, db, user.uid)
   await firestoreModule.runTransaction(db, async transaction => {
@@ -79,29 +77,31 @@ async function setConfig(uid, name, value) {
   return validation.data
 }
 
+export async function subscribeConfig(uid, name, onValue, onError) {
+  assertUid(uid)
+  const { firestoreModule, db } = await getFirestoreModules()
+  return firestoreModule.onSnapshot(
+    configRef(firestoreModule, db, uid, name),
+    snapshot => onValue(snapshot.exists() ? classifyCloudDocument(name, snapshot.data()) : { status: 'missing', data: null }),
+    onError,
+  )
+}
+
 export const getAppearanceConfig = uid => getConfig(uid, 'appearance')
 export const getLauncherConfig = uid => getConfig(uid, 'launcher')
 export const getPreferences = uid => getConfig(uid, 'preferences')
+export const subscribeAppearanceConfig = (uid, next, error) => subscribeConfig(uid, 'appearance', next, error)
+export const subscribeLauncherConfig = (uid, next, error) => subscribeConfig(uid, 'launcher', next, error)
+export const subscribePreferences = (uid, next, error) => subscribeConfig(uid, 'preferences', next, error)
 
-export const setAppearanceConfig = (uid, config) => setConfig(uid, 'appearance', {
-  schemaVersion: APPEARANCE_SCHEMA_VERSION,
-  ...config,
-})
-
-export const setLauncherConfig = (uid, config) => setConfig(uid, 'launcher', {
-  schemaVersion: LAUNCHER_SCHEMA_VERSION,
-  ...config,
-})
-
-export const setPreferences = (uid, config = {}) => setConfig(uid, 'preferences', {
-  schemaVersion: PREFERENCES_SCHEMA_VERSION,
-  ...config,
-})
+export const setAppearanceConfig = (uid, config) => setConfig(uid, 'appearance', { schemaVersion: APPEARANCE_SCHEMA_VERSION, ...config })
+export const setLauncherConfig = (uid, config) => setConfig(uid, 'launcher', { schemaVersion: LAUNCHER_SCHEMA_VERSION, ...config })
+export const setPreferences = (uid, config = {}) => setConfig(uid, 'preferences', { schemaVersion: PREFERENCES_SCHEMA_VERSION, ...config })
 
 export function describeCloudError(error) {
   const code = error?.code || error?.message || ''
-  if (code.includes('permission-denied')) return 'Cloud profile access was denied.'
-  if (code.includes('unavailable') || code.includes('network')) return 'Cloud profile is temporarily unavailable. Your local launcher is still available.'
-  if (code.includes('unsupported')) return 'Cloud profile uses a schema this Tornado build does not support.'
-  return 'Cloud profile could not be prepared. Your local launcher is still available.'
+  if (code.includes('permission-denied')) return 'Tornado could not access your synced settings.'
+  if (code.includes('unavailable') || code.includes('network')) return 'Tornado is offline. Local changes will remain available.'
+  if (code.includes('unsupported')) return 'Your synced settings use a newer Tornado format.'
+  return 'Tornado sync needs attention. Your local launcher is still available.'
 }

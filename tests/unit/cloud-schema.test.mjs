@@ -41,7 +41,8 @@ test('stable Tornado IDs stay platform-neutral', () => {
   assert.equal(isStableTornadoId('C:\\Program Files\\Game.exe'), false)
 })
 
-test('missing, malformed and unsupported config states remain distinguishable', () => {
-  assert.deepEqual(classifyCloudDocument('launcher', { schemaVersion: 99, selectedItemIds: [] }), { status: 'malformed', data: null })
+test('malformed and unsupported config states remain distinguishable', () => {
+  assert.deepEqual(classifyCloudDocument('launcher', { schemaVersion: 99, selectedItemIds: [] }), { status: 'unsupported', data: null })
+  assert.deepEqual(classifyCloudDocument('launcher', { schemaVersion: 1, selectedItemIds: ['bad id'] }), { status: 'malformed', data: null })
   assert.deepEqual(classifyCloudDocument('future-area', { schemaVersion: 1 }), { status: 'unsupported', data: null })
 })

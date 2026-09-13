@@ -24,13 +24,15 @@ test.describe('Tornado account sync', () => {
     await page.getByRole('button', { name: 'Settings' }).click()
     await page.getByRole('button', { name: 'Light' }).click()
     await expect(page.locator('.app')).toHaveClass(/light/)
+    await page.getByRole('button', { name: 'Profile' }).click()
+    await expect(page.getByRole('status')).toContainText('Synced')
 
     await page.evaluate(() => {
       const email = localStorage.getItem('tornado-test-auth-session')
       localStorage.removeItem(`tornado-account-portable-v1:test-${email}`)
     })
     await page.reload()
-    await page.getByRole('heading', { name: 'Apps' }).waitFor()
+    await page.getByRole('heading', { name: 'Profile' }).waitFor()
     await expect(page.locator('.app')).toHaveClass(/light/)
   })
 

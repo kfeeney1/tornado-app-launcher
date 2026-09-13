@@ -40,7 +40,9 @@ test('sign out returns to login without clearing launcher preferences', async ({
   await signOutTestUser(page)
 
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
-  await expect(page.evaluate(() => localStorage.getItem('tornado-theme'))).resolves.toBe('"light"')
+  const portableConfig = await page.evaluate(() => JSON.parse(localStorage.getItem('tornado-portable-config-v1')))
+  expect(portableConfig.appearance.theme).toBe('light')
+  await expect(page.evaluate(() => localStorage.getItem('tornado-theme'))).resolves.toBeNull()
 })
 
 test('invalid credentials show a useful error and remain stable', async ({ page }) => {

@@ -13,10 +13,7 @@ export default function LauncherCard({ item, onRemove }) {
 
   useEffect(() => {
     let cancelled = false
-    if (!discoveryAvailable) {
-      setInstalled(null)
-      return () => { cancelled = true }
-    }
+    if (!discoveryAvailable) return () => { cancelled = true }
 
     void isAppInstalled(item.id, platform).then(value => {
       if (!cancelled) setInstalled(value)

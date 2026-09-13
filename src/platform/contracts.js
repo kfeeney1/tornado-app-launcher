@@ -9,6 +9,7 @@ export const PLATFORM_CAPABILITIES = Object.freeze({
   NATIVE_APP_LAUNCH: 'native-app-launch',
   LOCAL_FILESYSTEM: 'local-filesystem',
   INSTALLED_APP_DISCOVERY: 'installed-app-discovery',
+  GAME_RESOLUTION: 'game-resolution',
   DESKTOP_WINDOW_CONTROLS: 'desktop-window-controls',
   NATIVE_NOTIFICATIONS: 'native-notifications',
 })

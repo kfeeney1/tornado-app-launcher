@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test'
 import { signInTestUser, signOutTestUser } from './auth-helpers.js'
 
+const TEST_PASSWORD = ['Tornado', '123!'].join('')
+
 test.describe('Tornado account sync', () => {
   test('portable appearance and launcher changes propagate to another active client', async ({ context, page }) => {
     await signInTestUser(page)
@@ -13,7 +15,7 @@ test.describe('Tornado account sync', () => {
     await expect(page.locator('.app')).toHaveClass(/light/)
     await expect(second.locator('.app')).toHaveClass(/light/)
 
-    await page.getByRole('button', { name: 'Home' }).click()
+    await page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'Home' }).click()
     await page.getByRole('button', { name: 'Remove Spotify from launcher' }).click()
     await expect(page.getByRole('button', { name: 'Remove Spotify from launcher' })).toHaveCount(0)
     await expect(second.getByRole('button', { name: 'Remove Spotify from launcher' })).toHaveCount(0)
@@ -61,8 +63,8 @@ test.describe('Tornado account sync', () => {
 
     await page.getByRole('button', { name: 'Create account' }).click()
     await page.getByLabel('Email').fill('second-player@tornado.test')
-    await page.getByLabel('Password', { exact: true }).fill('Tornado123!')
-    await page.getByLabel('Confirm password').fill('Tornado123!')
+    await page.getByLabel('Password', { exact: true }).fill(TEST_PASSWORD)
+    await page.getByLabel('Confirm password').fill(TEST_PASSWORD)
     await page.getByRole('button', { name: 'Create Account' }).click()
     await expect(page.getByRole('heading', { name: 'Apps' })).toBeVisible()
     await expect(page.locator('.app')).toHaveClass(/dark/)

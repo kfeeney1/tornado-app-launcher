@@ -74,7 +74,7 @@ export function defaultDeviceName(platform = detectClientPlatform(), userAgent =
 }
 
 export function getAppVersion() {
-  return typeof __TORNADO_APP_VERSION__ === 'string' ? __TORNADO_APP_VERSION__ : null
+  return typeof globalThis.__TORNADO_APP_VERSION__ === 'string' ? globalThis.__TORNADO_APP_VERSION__ : null
 }
 
 export function buildCurrentDeviceMetadata() {

@@ -14,10 +14,9 @@ test.describe('Tornado account sync', () => {
     await expect(second.locator('.app')).toHaveClass(/light/)
 
     await page.getByRole('button', { name: 'Home' }).click()
-    const spotifyCard = page.getByRole('heading', { name: 'Spotify' }).locator('..').locator('..')
-    await spotifyCard.getByRole('button', { name: /remove/i }).click()
-    await expect(page.getByRole('heading', { name: 'Spotify' })).toHaveCount(0)
-    await expect(second.getByRole('heading', { name: 'Spotify' })).toHaveCount(0)
+    await page.getByRole('button', { name: 'Remove Spotify from launcher' }).click()
+    await expect(page.getByRole('button', { name: 'Remove Spotify from launcher' })).toHaveCount(0)
+    await expect(second.getByRole('button', { name: 'Remove Spotify from launcher' })).toHaveCount(0)
   })
 
   test('established cloud configuration restores after account cache is cleared', async ({ page }) => {
@@ -27,8 +26,8 @@ test.describe('Tornado account sync', () => {
     await expect(page.locator('.app')).toHaveClass(/light/)
 
     await page.evaluate(() => {
-      const uid = localStorage.getItem('tornado-test-auth-session')
-      localStorage.removeItem(`tornado-account-portable-v1:test-${uid}`)
+      const email = localStorage.getItem('tornado-test-auth-session')
+      localStorage.removeItem(`tornado-account-portable-v1:test-${email}`)
     })
     await page.reload()
     await page.getByRole('heading', { name: 'Apps' }).waitFor()

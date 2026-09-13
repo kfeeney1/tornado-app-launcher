@@ -34,6 +34,21 @@ test.describe('Tornado account sync', () => {
     await expect(page.locator('.app')).toHaveClass(/light/)
   })
 
+  test('offline portable changes remain usable and flush after reconnect', async ({ context, page }) => {
+    await signInTestUser(page)
+    await context.setOffline(true)
+    await page.getByRole('button', { name: 'Settings' }).click()
+    await page.getByRole('button', { name: 'Light' }).click()
+    await expect(page.locator('.app')).toHaveClass(/light/)
+    await page.getByRole('button', { name: 'Profile' }).click()
+    await expect(page.getByRole('status')).toContainText('Offline')
+
+    await context.setOffline(false)
+    await expect(page.getByRole('status')).toContainText('Synced')
+    const syncedTheme = await page.evaluate(() => JSON.parse(localStorage.getItem('tornado-test-cloud-v1:test-existing@tornado.test:appearance'))?.theme)
+    expect(syncedTheme).toBe('light')
+  })
+
   test('sync status is exposed without blocking the launcher', async ({ page }) => {
     await signInTestUser(page)
     await page.getByRole('button', { name: 'Profile' }).click()

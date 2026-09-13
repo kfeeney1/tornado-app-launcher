@@ -47,8 +47,20 @@ export function SyncProvider({ children }) {
         }
         return
       }
-      if (loadPendingDomains(uid).has(domain)) return
-      if (sameDomain(portableRef.current, domain, result.data)) return
+
+      const pending = loadPendingDomains(uid)
+      if (pending.has(domain)) {
+        const cached = loadAccountPortable(uid)
+        if (!sameDomain(cached, domain, result.data)) return
+        clearPending(uid, domain)
+      }
+
+      if (sameDomain(portableRef.current, domain, result.data)) {
+        setLastSyncedAt(new Date())
+        setStatus(navigator.onLine === false ? SYNC_STATUS.OFFLINE : SYNC_STATUS.SYNCED)
+        return
+      }
+
       const next = applyDomain(portableRef.current, domain, result.data)
       if (!validatePortableConfig(next)) return
       portableRef.current = next

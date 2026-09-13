@@ -5,7 +5,7 @@ const UID = 'test-existing@tornado.test'
 const accountKey = `tornado-account-portable-v1:${UID}`
 const metaKey = `tornado-account-portable-meta-v1:${UID}`
 const cloudKey = domain => `tornado-test-cloud-v1:${UID}:${domain}`
-const basePortable = (theme = 'dark', selectedItemIds = ['spotify', 'discord', 'chrome', 'minecraft']) => ({ schemaVersion: 1, appearance: { theme }, launcher: { selectedItemIds }, preferences: {} })
+const basePortable = (theme = 'dark', selectedItemIds = ['spotify', 'discord', 'browser', 'minecraft']) => ({ schemaVersion: 1, appearance: { theme }, launcher: { selectedItemIds }, preferences: {} })
 const cloudDocs = portable => ({
   appearance: { schemaVersion: 1, theme: portable.appearance.theme },
   launcher: { schemaVersion: 1, selectedItemIds: portable.launcher.selectedItemIds },
@@ -53,7 +53,7 @@ test.describe('Stage 5 setup reconciliation', () => {
   })
 
   test('different meaningful setups prompt before sync and choosing account preserves cloud', async ({ page }) => {
-    const local = basePortable('dark', ['spotify', 'discord', 'chrome', 'minecraft'])
+    const local = basePortable('dark', ['spotify', 'discord', 'browser', 'minecraft'])
     const remote = basePortable('light', ['spotify', 'discord', 'youtube', 'minecraft', 'roblox'])
     const docs = cloudDocs(remote)
     await seedBeforeLoad(page, {
@@ -66,7 +66,7 @@ test.describe('Stage 5 setup reconciliation', () => {
     const dialog = page.getByRole('dialog')
     await expect(dialog).toContainText('Your Tornado setups are different')
     await dialog.getByRole('button', { name: 'Review differences' }).click()
-    await expect(dialog).toContainText('Chrome')
+    await expect(dialog).toContainText('Browser')
     await expect(dialog).toContainText('YouTube')
     await dialog.getByRole('button', { name: 'Use account setup' }).click()
     await expect(dialog).toHaveCount(0)
@@ -125,8 +125,8 @@ test.describe('Stage 5 setup reconciliation', () => {
   test('offline unresolved setup remains locally usable and is not marked complete', async ({ context, page }) => {
     const local = basePortable('light', ['spotify', 'minecraft'])
     await seedBeforeLoad(page, { 'tornado-portable-config-v1': local })
-    await context.setOffline(true)
     await page.goto('/')
+    await context.setOffline(true)
     await page.getByLabel('Email').fill('existing@tornado.test')
     await page.getByLabel('Password').fill('Tornado123!')
     await page.getByRole('button', { name: 'Sign In' }).click()

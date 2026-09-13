@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../auth/AuthContext.jsx'
-import { createDefaultPortableConfig, validatePortableConfig } from '../config/localConfig.js'
+import { validatePortableConfig } from '../config/localConfig.js'
 import { loadAccountPortable, saveAccountPortable } from './accountCache.js'
 import { createSyncBackend } from './syncBackend.js'
 import { DOMAINS, applyDomain, reconcileInitial, sameDomain, toDomain } from './syncLogic.js'
@@ -12,9 +12,9 @@ const WRITE_DELAY_MS = 250
 
 export function SyncProvider({ children }) {
   const { user } = useAuth()
-  const uid = user?.uid ?? null
-  const [portable, setPortable] = useState(createDefaultPortableConfig)
-  const [status, setStatus] = useState(SYNC_STATUS.INITIALIZING)
+  const uid = user.uid
+  const [portable, setPortable] = useState(() => loadAccountPortable(uid))
+  const [status, setStatus] = useState(() => navigator.onLine === false ? SYNC_STATUS.OFFLINE : SYNC_STATUS.INITIALIZING)
   const [message, setMessage] = useState('')
   const [lastSyncedAt, setLastSyncedAt] = useState(null)
   const backendRef = useRef(null)
@@ -30,25 +30,13 @@ export function SyncProvider({ children }) {
     for (const timer of timers.values()) clearTimeout(timer)
     timers.clear()
 
-    if (!uid) {
-      setPortable(createDefaultPortableConfig())
-      setStatus(SYNC_STATUS.DISABLED)
-      setMessage('')
-      setLastSyncedAt(null)
-      return undefined
-    }
-
     let active = true
     let initialized = false
     let initializing = false
     const unsubscribers = []
     const backend = createSyncBackend()
     backendRef.current = backend
-    const local = loadAccountPortable(uid)
-    portableRef.current = local
-    setPortable(local)
-    setStatus(navigator.onLine === false ? SYNC_STATUS.OFFLINE : SYNC_STATUS.INITIALIZING)
-    setMessage('')
+    const local = portableRef.current
 
     const applyRemote = (domain, result) => {
       if (!active || uidRef.current !== uid) return
@@ -157,7 +145,6 @@ export function SyncProvider({ children }) {
   }, [uid])
 
   const updateDomain = useCallback((domain, updater) => {
-    if (!uid) return
     const current = portableRef.current
     const candidate = typeof updater === 'function' ? updater(current) : updater
     const validated = validatePortableConfig(candidate)

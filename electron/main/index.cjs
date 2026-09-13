@@ -3,6 +3,7 @@ const path = require('node:path')
 const { pathToFileURL } = require('node:url')
 const { resolveNativeLaunchTarget } = require('./nativeLaunch.cjs')
 const { discoverInstalledApps } = require('./installedApps.cjs')
+const { resolveInstalledGame } = require('./gameResolver.cjs')
 
 const DEV_RENDERER_URL = process.env.TORNADO_RENDERER_URL || ''
 const isDev = Boolean(DEV_RENDERER_URL)
@@ -40,6 +41,13 @@ function registerIpc() {
   })
 
   ipcMain.handle('platform:get-installed-apps', async () => discoverInstalledApps())
+
+  ipcMain.handle('platform:resolve-game', async (_event, appId) => {
+    if (typeof appId !== 'string') throw new Error('Unsupported game resolution request')
+    const resolution = await resolveInstalledGame(appId)
+    if (!resolution) throw new Error('Unsupported game resolution request')
+    return resolution
+  })
 }
 
 function createWindow() {

@@ -18,11 +18,22 @@ function sanitizeInstalledApps(value) {
   return apps
 }
 
+function sanitizeGameResolution(value, appId) {
+  if (!value || typeof value !== 'object' || value.appId !== appId || typeof value.installed !== 'boolean') return null
+  const launchers = new Set(['minecraft-launcher', 'roblox', 'epic-games'])
+  return Object.freeze({
+    appId,
+    installed: value.installed,
+    launcher: launchers.has(value.launcher) ? value.launcher : null,
+  })
+}
+
 export function createWindowsAdapter(bridge) {
   const kind = PLATFORM_KINDS.WINDOWS
   const capabilities = new Set([PLATFORM_CAPABILITIES.OPEN_EXTERNAL])
   if (typeof bridge?.launchNativeApp === 'function') capabilities.add(PLATFORM_CAPABILITIES.NATIVE_APP_LAUNCH)
   if (typeof bridge?.getInstalledApps === 'function') capabilities.add(PLATFORM_CAPABILITIES.INSTALLED_APP_DISCOVERY)
+  if (typeof bridge?.resolveGame === 'function') capabilities.add(PLATFORM_CAPABILITIES.GAME_RESOLUTION)
 
   return Object.freeze({
     kind,
@@ -55,6 +66,16 @@ export function createWindowsAdapter(bridge) {
         return supported(sanitizeInstalledApps(await bridge.getInstalledApps()))
       } catch {
         return { ok: false, reason: 'discovery-failed' }
+      }
+    },
+    async resolveGame(appId) {
+      if (typeof appId !== 'string' || !appId) return { ok: false, reason: 'invalid-target' }
+      if (!capabilities.has(PLATFORM_CAPABILITIES.GAME_RESOLUTION)) return { ok: false, reason: 'unsupported', capability: PLATFORM_CAPABILITIES.GAME_RESOLUTION, platform: kind }
+      try {
+        const resolution = sanitizeGameResolution(await bridge.resolveGame(appId), appId)
+        return resolution ? supported(resolution) : { ok: false, reason: 'resolution-failed' }
+      } catch {
+        return { ok: false, reason: 'resolution-failed' }
       }
     },
   })

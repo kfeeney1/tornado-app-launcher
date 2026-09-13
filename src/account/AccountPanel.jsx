@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useCloudProfile } from '../cloud/CloudProfileContext.jsx'
-import { normalizeDisplayName, supportsPasswordAuthentication, validateDisplayName, validateEmail, validateNewPassword, validatePassword } from './accountValidation.js'
+import { supportsPasswordAuthentication, validateDisplayName, validateEmail, validateNewPassword, validatePassword } from './accountValidation.js'
 
 function FormMessage({ error, message }) {
   if (error) return <div className="auth-message error" role="alert">{error}</div>

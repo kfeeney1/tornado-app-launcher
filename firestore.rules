@@ -31,6 +31,23 @@ service cloud.firestore {
       return data.keys().hasOnly(['schemaVersion']) && data.schemaVersion == 1;
     }
 
+    function validDevice(data, deviceId) {
+      return data.keys().hasOnly(['schemaVersion', 'deviceId', 'platform', 'deviceName', 'clientType', 'appVersion', 'createdAt', 'lastSeenAt'])
+        && data.schemaVersion == 1
+        && data.deviceId == deviceId
+        && data.deviceId is string
+        && data.platform in ['web', 'android', 'windows', 'unknown']
+        && data.deviceName is string
+        && data.deviceName.size() > 0
+        && data.deviceName.size() <= 128
+        && data.clientType is string
+        && data.clientType.size() > 0
+        && data.clientType.size() <= 64
+        && (data.appVersion == null || data.appVersion is string)
+        && data.createdAt is timestamp
+        && data.lastSeenAt is timestamp;
+    }
+
     match /users/{uid} {
       allow read: if owns(uid);
       allow create: if owns(uid) && validProfile(request.resource.data);
@@ -47,6 +64,16 @@ service cloud.firestore {
           (configName == 'preferences' && validPreferences(request.resource.data))
         );
         allow delete: if owns(uid) && configName in ['appearance', 'launcher', 'preferences'];
+      }
+
+      match /devices/{deviceId} {
+        allow read: if owns(uid);
+        allow create: if owns(uid) && validDevice(request.resource.data, deviceId);
+        allow update: if owns(uid)
+          && validDevice(request.resource.data, deviceId)
+          && request.resource.data.deviceId == resource.data.deviceId
+          && request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if owns(uid);
       }
     }
   }

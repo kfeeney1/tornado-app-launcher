@@ -1,3 +1,5 @@
+export type { TornadoDeviceConfig, TornadoPortableConfig } from '../config/schema'
+
 export type TornadoTheme = 'dark' | 'light'
 export type TornadoItemType = 'app' | 'game'
 
@@ -30,14 +32,6 @@ export interface CloudLauncherConfig {
 
 export interface CloudPreferencesConfig {
   schemaVersion: 1
-}
-
-export interface DeviceSpecificConfiguration {
-  androidPackageAvailability?: Record<string, boolean>
-  executablePaths?: Record<string, string>
-  downloadFolder?: string
-  platformLaunchTargets?: Record<string, string>
-  windowBounds?: { x: number; y: number; width: number; height: number }
 }
 
 export type CloudReadResult<T> =

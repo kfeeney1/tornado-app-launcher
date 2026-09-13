@@ -39,7 +39,7 @@ function mapAuthError(error) {
   const code = error?.code || error?.cause?.code || error?.message || ''
 
   if (code.includes('invalid-email')) return 'Please enter a valid email address.'
-  if (code.includes('invalid-credential') || code.includes('wrong-password')) return 'The current password is incorrect.'
+  if (code.includes('invalid-credential') || code.includes('wrong-password')) return 'Incorrect email or password.'
   if (code.includes('user-not-found')) return 'This Tornado account is no longer available.'
   if (code.includes('user-disabled')) return 'This Tornado account has been disabled.'
   if (code.includes('weak-password')) return 'Choose a stronger password with at least 8 characters.'

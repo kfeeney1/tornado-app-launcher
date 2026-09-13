@@ -9,6 +9,8 @@ const DeviceContext = createContext(null)
 export function DeviceProvider({ children }) {
   const { user } = useAuth()
   const { migration } = useSync()
+  const uid = user?.uid
+  const migrationState = migration.state
   const [deviceId] = useState(() => getOrCreateDeviceId())
   const [devices, setDevices] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -17,9 +19,9 @@ export function DeviceProvider({ children }) {
   const activeRef = useRef(true)
 
   const refreshDevices = useCallback(async () => {
-    if (!user?.uid) return
+    if (!uid) return
     try {
-      const next = await serviceRef.current.listDevices(user.uid, deviceId)
+      const next = await serviceRef.current.listDevices(uid, deviceId)
       if (!activeRef.current) return
       setDevices(next)
       setError('')
@@ -29,38 +31,37 @@ export function DeviceProvider({ children }) {
     } finally {
       if (activeRef.current) setIsLoading(false)
     }
-  }, [user?.uid, deviceId])
+  }, [uid, deviceId])
 
   const register = useCallback(async ({ force = false } = {}) => {
-    if (!user?.uid || migration.state !== 'complete' || navigator.onLine === false) return
+    if (!uid || migrationState !== 'complete' || navigator.onLine === false) return
     try {
-      await serviceRef.current.registerCurrentDevice(user.uid, deviceId, buildCurrentDeviceMetadata(), { force })
+      await serviceRef.current.registerCurrentDevice(uid, deviceId, buildCurrentDeviceMetadata(), { force })
       await refreshDevices()
     } catch {
       if (!activeRef.current) return
       setError('Unable to update device activity right now.')
       setIsLoading(false)
     }
-  }, [user?.uid, migration.state, deviceId, refreshDevices])
+  }, [uid, migrationState, deviceId, refreshDevices])
 
   const removeDevice = useCallback(async targetDeviceId => {
-    if (!user?.uid || targetDeviceId === deviceId) return false
+    if (!uid || targetDeviceId === deviceId) return false
     try {
-      await serviceRef.current.removeDevice(user.uid, targetDeviceId)
+      await serviceRef.current.removeDevice(uid, targetDeviceId)
       await refreshDevices()
       return true
     } catch {
       if (activeRef.current) setError('Unable to remove that device right now.')
       return false
     }
-  }, [user?.uid, deviceId, refreshDevices])
+  }, [uid, deviceId, refreshDevices])
 
   useEffect(() => {
     activeRef.current = true
-    if (migration.state === 'complete') register({ force: true })
-    else if (migration.state === 'offline') setIsLoading(false)
+    if (migrationState === 'complete') register({ force: true })
     return () => { activeRef.current = false }
-  }, [migration.state, register])
+  }, [migrationState, register])
 
   useEffect(() => {
     const onVisibility = () => {
@@ -74,7 +75,8 @@ export function DeviceProvider({ children }) {
     }
   }, [register])
 
-  const value = useMemo(() => ({ deviceId, devices, isLoading, error, refreshDevices, removeDevice }), [deviceId, devices, isLoading, error, refreshDevices, removeDevice])
+  const registryLoading = migrationState === 'offline' ? false : isLoading
+  const value = useMemo(() => ({ deviceId, devices, isLoading: registryLoading, error, refreshDevices, removeDevice }), [deviceId, devices, registryLoading, error, refreshDevices, removeDevice])
   return <DeviceContext.Provider value={value}>{children}</DeviceContext.Provider>
 }
 

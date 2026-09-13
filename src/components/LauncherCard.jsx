@@ -9,10 +9,19 @@ export default function LauncherCard({ item, onRemove }) {
   const target = resolveLaunchTarget(item, platform.kind)
   const nativeLaunchAvailable = target.type !== 'protocol' || platform.can(PLATFORM_CAPABILITIES.NATIVE_APP_LAUNCH)
   const discoveryAvailable = platform.can(PLATFORM_CAPABILITIES.INSTALLED_APP_DISCOVERY)
+  const gameResolutionAvailable = item.type === 'game' && platform.can(PLATFORM_CAPABILITIES.GAME_RESOLUTION)
   const [installed, setInstalled] = useState(null)
 
   useEffect(() => {
     let cancelled = false
+
+    if (gameResolutionAvailable && typeof platform.resolveGame === 'function') {
+      void platform.resolveGame(item.id).then(result => {
+        if (!cancelled) setInstalled(result?.ok ? result.value.installed : null)
+      })
+      return () => { cancelled = true }
+    }
+
     if (!discoveryAvailable) return () => { cancelled = true }
 
     void isAppInstalled(item.id, platform).then(value => {
@@ -20,7 +29,7 @@ export default function LauncherCard({ item, onRemove }) {
     })
 
     return () => { cancelled = true }
-  }, [discoveryAvailable, item.id])
+  }, [discoveryAvailable, gameResolutionAvailable, item.id])
 
   const launch = async () => {
     await launchApp(item, platform)
@@ -28,8 +37,8 @@ export default function LauncherCard({ item, onRemove }) {
 
   let status = item.url ? 'Web' : 'Install'
   if (target.type === 'protocol') {
-    if (discoveryAvailable && installed === false) status = 'Install'
-    else if (discoveryAvailable && installed === true) status = 'Launch'
+    if ((gameResolutionAvailable || discoveryAvailable) && installed === false) status = 'Install'
+    else if ((gameResolutionAvailable || discoveryAvailable) && installed === true) status = 'Launch'
     else status = nativeLaunchAvailable ? 'Launch game' : 'Install'
   } else if (installed === true) {
     status = 'Installed · Web'

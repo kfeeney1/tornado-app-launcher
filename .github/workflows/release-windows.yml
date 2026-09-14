@@ -1,0 +1,138 @@
+name: Release Windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_ref:
+        description: Commit SHA or ref to release
+        required: true
+        default: main
+      version:
+        description: SemVer matching package.json (for example 0.1.0)
+        required: true
+        default: 0.1.0
+      publish:
+        description: Publish GitHub Release after validation
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci
+      - run: npm run lint
+      - run: node --check functions/index.js
+      - run: node --test tests/unit/*.test.mjs
+      - run: npm run desktop:test
+      - run: npm run build
+      - run: npx --yes firebase-tools@latest emulators:exec --project demo-tornado-app-launcher --only auth,firestore "node --test tests/firestore-rules.test.mjs"
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:smoke
+      - name: Validate release metadata
+        env:
+          TORNADO_RELEASE_VERSION: ${{ inputs.version }}
+        run: node scripts/validate-release.mjs
+
+  package:
+    needs: validate
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    env:
+      VITE_FIREBASE_API_KEY: ${{ secrets.TORNADO_FIREBASE_API_KEY }}
+      VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.TORNADO_FIREBASE_AUTH_DOMAIN }}
+      VITE_FIREBASE_PROJECT_ID: ${{ secrets.TORNADO_FIREBASE_PROJECT_ID }}
+      VITE_FIREBASE_APP_ID: ${{ secrets.TORNADO_FIREBASE_APP_ID }}
+      CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Validate release environment
+        shell: pwsh
+        env:
+          TORNADO_RELEASE_VERSION: ${{ inputs.version }}
+          REQUIRE_FIREBASE_CONFIG: 'true'
+        run: node scripts/validate-release.mjs
+      - run: npm run desktop:dir
+      - name: Smoke unpacked release build
+        shell: pwsh
+        run: |
+          $app = Join-Path $PWD 'release/win-unpacked/Tornado.exe'
+          if (-not (Test-Path $app)) { throw 'Unpacked Tornado executable was not produced.' }
+          $started = Start-Process -FilePath $app -PassThru
+          Start-Sleep -Seconds 10
+          $running = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -like 'Tornado*' })
+          if ($started.HasExited -and $running.Count -eq 0) { throw "Tornado exited during release smoke test with code $($started.ExitCode)." }
+          foreach ($process in $running) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+          if (-not $started.HasExited) { Stop-Process -Id $started.Id -Force -ErrorAction SilentlyContinue }
+      - run: npm run desktop:build
+      - name: Generate SHA-256 checksum
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem release -Filter 'Tornado-Setup-*.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'Windows installer was not produced.' }
+          $hash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
+          "$hash  $($installer.Name)" | Set-Content -Encoding ascii "$($installer.FullName).sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tornado-windows-release-${{ inputs.version }}
+          path: |
+            release/Tornado-Setup-${{ inputs.version }}.exe
+            release/Tornado-Setup-${{ inputs.version }}.exe.sha256
+          if-no-files-found: error
+
+  publish:
+    if: ${{ inputs.publish }}
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_ref }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: tornado-windows-release-${{ inputs.version }}
+          path: release
+      - name: Refuse existing tag rewrite
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/v${{ inputs.version }}"; then
+            echo "Tag v${{ inputs.version }} already exists; refusing to rewrite it."
+            exit 1
+          fi
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ inputs.version }}" \
+            release/Tornado-Setup-${{ inputs.version }}.exe \
+            release/Tornado-Setup-${{ inputs.version }}.exe.sha256 \
+            --target "${{ inputs.release_ref }}" \
+            --title "Tornado v${{ inputs.version }}" \
+            --generate-notes

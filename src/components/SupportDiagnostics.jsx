@@ -1,14 +1,18 @@
 import { useMemo, useState } from 'react'
 import packageInfo from '../../package.json'
 import { DEVICE_CONFIG_SCHEMA_VERSION, PORTABLE_CONFIG_SCHEMA_VERSION } from '../config/localConfig.js'
+import { getStartupRecoverySummary } from '../config/startupRecovery.js'
 import { isDesktop } from '../platform/index.js'
 
 function buildDiagnostics(syncStatus) {
+  const recovery = getStartupRecoverySummary()
   return [
     `Tornado version: ${packageInfo.version}`,
     `Client: ${isDesktop() ? 'Windows desktop' : 'Web'}`,
     `Portable config schema: ${PORTABLE_CONFIG_SCHEMA_VERSION}`,
     `Device config schema: ${DEVICE_CONFIG_SCHEMA_VERSION}`,
+    `Portable startup recovery: ${recovery.portable}`,
+    `Device startup recovery: ${recovery.device}`,
     `Sync status: ${syncStatus || 'unknown'}`,
     'Update channel: stable',
     'Update mechanism: manual GitHub Releases',
@@ -30,7 +34,7 @@ export default function SupportDiagnostics({ syncStatus }) {
 
   return (
     <div>
-      <p className="field-help">Support diagnostics include version, client type, configuration schema versions, sync state and update mode only. They do not include account tokens, Firebase credentials, usernames or local executable paths.</p>
+      <p className="field-help">Support diagnostics include version, client type, configuration schema versions, startup recovery state, sync state and update mode only. They do not include account tokens, Firebase credentials, usernames or local executable paths.</p>
       <pre aria-label="Support diagnostics">{diagnostics}</pre>
       <button onClick={copyDiagnostics}>Copy diagnostics</button>
       {copyState === 'copied' && <span role="status"> Diagnostics copied.</span>}

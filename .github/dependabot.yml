@@ -1,0 +1,25 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      react-vite:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "vite"
+          - "@vitejs/plugin-react"
+      lint-test-tooling:
+        patterns:
+          - "eslint*"
+          - "@eslint/*"
+          - "globals"
+          - "@playwright/test"
+    commit-message:
+      prefix: "deps"
+    labels:
+      - "dependencies"

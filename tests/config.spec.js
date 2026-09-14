@@ -3,7 +3,7 @@ import { signInTestUser, signOutTestUser } from './auth-helpers.js'
 
 const ACCOUNT_CACHE_KEY = 'tornado-account-portable-v1:test-existing@tornado.test'
 
-test('existing legacy launcher configuration survives the Stage 3 upgrade and reload', async ({ page }) => {
+test('existing legacy launcher configuration survives local config upgrades and reload', async ({ page }) => {
   await page.goto('/')
   await page.evaluate(() => {
     localStorage.setItem('tornado-theme', JSON.stringify('light'))
@@ -26,7 +26,8 @@ test('existing legacy launcher configuration survives the Stage 3 upgrade and re
   }), ACCOUNT_CACHE_KEY)
   expect(migrated.portable.appearance.theme).toBe('light')
   expect(migrated.portable.launcher.selectedItemIds).toEqual(['spotify', 'roblox', 'browser', 'minecraft'])
-  expect(migrated.device.schemaVersion).toBe(1)
+  expect(migrated.device.schemaVersion).toBe(2)
+  expect(migrated.device).toHaveProperty('installedApps')
   expect(migrated.legacyTheme).toBeNull()
   expect(migrated.legacySelection).toBeNull()
 
@@ -42,7 +43,7 @@ test('portable updates leave device data local and sign-out does not delete it',
   await page.evaluate(() => {
     const device = JSON.parse(localStorage.getItem('tornado-device-config-v1'))
     device.nativePreferences = { localPerformanceMode: 'balanced' }
-    device.launchTargets = { minecraft: { installed: true } }
+    device.launchTargets = { minecraft: { executablePath: 'C:/Games/Minecraft.exe', source: 'manual', updatedAt: Date.now() } }
     localStorage.setItem('tornado-device-config-v1', JSON.stringify(device))
   })
 
@@ -55,7 +56,7 @@ test('portable updates leave device data local and sign-out does not delete it',
   }), ACCOUNT_CACHE_KEY)
   expect(beforeSignOut.portable.appearance.theme).toBe('light')
   expect(beforeSignOut.portable).not.toHaveProperty('launchTargets')
-  expect(beforeSignOut.device.launchTargets.minecraft.installed).toBe(true)
+  expect(beforeSignOut.device.launchTargets.minecraft.executablePath).toBe('C:/Games/Minecraft.exe')
   expect(beforeSignOut.device.nativePreferences.localPerformanceMode).toBe('balanced')
 
   await signOutTestUser(page)

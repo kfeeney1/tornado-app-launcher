@@ -2,12 +2,15 @@ import { defaultSelection } from '../data/catalog.js'
 import { isStableTornadoId } from '../cloud/schema.js'
 
 export const PORTABLE_CONFIG_SCHEMA_VERSION = 1
-export const DEVICE_CONFIG_SCHEMA_VERSION = 1
+export const DEVICE_CONFIG_SCHEMA_VERSION = 2
 export const PORTABLE_CONFIG_STORAGE_KEY = 'tornado-portable-config-v1'
 export const DEVICE_CONFIG_STORAGE_KEY = 'tornado-device-config-v1'
 const LEGACY_THEME_KEY = 'tornado-theme'
 const LEGACY_SELECTION_KEY = 'tornado-selection'
 const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value)
+const validPlatforms = new Set(['web', 'android', 'windows', 'unknown'])
+const validResolutionSources = new Set(['discovery', 'game-resolver', 'manual'])
+const validLaunchers = new Set(['minecraft-launcher', 'roblox', 'epic-games'])
 
 function browserStorage() {
   try { return globalThis.localStorage ?? null } catch { return null }
@@ -25,7 +28,14 @@ export function detectPlatform(userAgent = globalThis.navigator?.userAgent ?? ''
 }
 
 export function createDefaultDeviceConfig(platform = detectPlatform()) {
-  return { schemaVersion: 1, platform, installationId: null, launchTargets: {}, nativePreferences: {} }
+  return {
+    schemaVersion: DEVICE_CONFIG_SCHEMA_VERSION,
+    platform,
+    installationId: null,
+    launchTargets: {},
+    installedApps: {},
+    nativePreferences: {},
+  }
 }
 
 export function validatePortableConfig(value) {
@@ -39,12 +49,73 @@ export function validatePortableConfig(value) {
   return { schemaVersion: 1, appearance: { theme: value.appearance.theme }, launcher: { selectedItemIds: [...value.launcher.selectedItemIds] }, preferences: { ...value.preferences } }
 }
 
+function sanitizeLaunchTargets(value) {
+  if (!isObject(value)) return null
+  const result = {}
+  for (const [appId, target] of Object.entries(value)) {
+    if (!isStableTornadoId(appId) || !isObject(target)) continue
+    const sanitized = {}
+    if (typeof target.executablePath === 'string' && target.executablePath.length <= 1024) sanitized.executablePath = target.executablePath
+    if (validResolutionSources.has(target.source)) sanitized.source = target.source
+    if (Number.isFinite(target.updatedAt) && target.updatedAt >= 0) sanitized.updatedAt = target.updatedAt
+    if (Object.keys(sanitized).length) result[appId] = sanitized
+  }
+  return result
+}
+
+function sanitizeInstalledApps(value) {
+  if (!isObject(value)) return null
+  const result = {}
+  for (const [appId, state] of Object.entries(value)) {
+    if (!isStableTornadoId(appId) || !isObject(state) || typeof state.installed !== 'boolean') continue
+    if (!Number.isFinite(state.checkedAt) || state.checkedAt < 0) continue
+    const launcher = validLaunchers.has(state.launcher) ? state.launcher : null
+    const source = validResolutionSources.has(state.source) ? state.source : 'discovery'
+    result[appId] = { installed: state.installed, launcher, source, checkedAt: state.checkedAt }
+  }
+  return result
+}
+
+function sanitizeNativePreferences(value) {
+  if (!isObject(value)) return null
+  const result = {}
+  for (const [key, preference] of Object.entries(value)) {
+    if (!/^[a-zA-Z0-9_-]{1,80}$/.test(key)) continue
+    if (['string', 'number', 'boolean'].includes(typeof preference) || preference === null) result[key] = preference
+  }
+  return result
+}
+
 export function validateDeviceConfig(value) {
-  if (!isObject(value) || value.schemaVersion !== 1) return null
-  if (!['web', 'android', 'windows', 'unknown'].includes(value.platform)) return null
+  if (!isObject(value) || value.schemaVersion !== DEVICE_CONFIG_SCHEMA_VERSION) return null
+  if (!validPlatforms.has(value.platform)) return null
   if (value.installationId != null && typeof value.installationId !== 'string') return null
+  const launchTargets = sanitizeLaunchTargets(value.launchTargets)
+  const installedApps = sanitizeInstalledApps(value.installedApps)
+  const nativePreferences = sanitizeNativePreferences(value.nativePreferences)
+  if (!launchTargets || !installedApps || !nativePreferences) return null
+  return {
+    schemaVersion: DEVICE_CONFIG_SCHEMA_VERSION,
+    platform: value.platform,
+    installationId: value.installationId ?? null,
+    launchTargets,
+    installedApps,
+    nativePreferences,
+  }
+}
+
+function migrateDeviceConfigV1(value, platform) {
+  if (!isObject(value) || value.schemaVersion !== 1) return null
+  if (!validPlatforms.has(value.platform)) return null
   if (!isObject(value.launchTargets) || !isObject(value.nativePreferences)) return null
-  return { schemaVersion: 1, platform: value.platform, installationId: value.installationId ?? null, launchTargets: { ...value.launchTargets }, nativePreferences: { ...value.nativePreferences } }
+  return validateDeviceConfig({
+    schemaVersion: DEVICE_CONFIG_SCHEMA_VERSION,
+    platform: value.platform || platform,
+    installationId: typeof value.installationId === 'string' ? value.installationId : null,
+    launchTargets: value.launchTargets,
+    installedApps: {},
+    nativePreferences: value.nativePreferences,
+  })
 }
 
 function parseStoredJson(storage, key) {
@@ -66,10 +137,11 @@ export function migrateLegacyLocalConfig(storage = browserStorage(), platform = 
   const storedDevice = parseStoredJson(storage, DEVICE_CONFIG_STORAGE_KEY)
   const currentPortable = validatePortableConfig(storedPortable)
   const currentDevice = validateDeviceConfig(storedDevice)
+  const migratedDevice = currentDevice ?? migrateDeviceConfigV1(storedDevice, platform)
   if (currentPortable && currentDevice) return { portable: currentPortable, device: currentDevice, migrated: false, unsupportedFutureSchema: false }
 
-  const portableFuture = isFutureSchema(storedPortable, 1)
-  const deviceFuture = isFutureSchema(storedDevice, 1)
+  const portableFuture = isFutureSchema(storedPortable, PORTABLE_CONFIG_SCHEMA_VERSION)
+  const deviceFuture = isFutureSchema(storedDevice, DEVICE_CONFIG_SCHEMA_VERSION)
   const defaults = createDefaultPortableConfig()
   const legacyTheme = parseStoredJson(storage, LEGACY_THEME_KEY)
   const legacySelection = parseStoredJson(storage, LEGACY_SELECTION_KEY)
@@ -78,7 +150,7 @@ export function migrateLegacyLocalConfig(storage = browserStorage(), platform = 
     appearance: { theme: legacyTheme === 'light' || legacyTheme === 'dark' ? legacyTheme : defaults.appearance.theme },
     launcher: { selectedItemIds: Array.isArray(legacySelection) ? legacySelection.filter(isStableTornadoId).filter((id, index, ids) => ids.indexOf(id) === index).slice(0, 10) : defaults.launcher.selectedItemIds },
   }) ?? defaults
-  const device = currentDevice ?? createDefaultDeviceConfig(platform)
+  const device = migratedDevice ?? createDefaultDeviceConfig(platform)
 
   const portableWritten = currentPortable || portableFuture ? true : safeWrite(storage, PORTABLE_CONFIG_STORAGE_KEY, portable)
   const deviceWritten = currentDevice || deviceFuture ? true : safeWrite(storage, DEVICE_CONFIG_STORAGE_KEY, device)
@@ -91,7 +163,12 @@ export function migrateLegacyLocalConfig(storage = browserStorage(), platform = 
     }
   }
 
-  return { portable, device, migrated: !currentPortable || !currentDevice, unsupportedFutureSchema: portableFuture || deviceFuture }
+  return {
+    portable,
+    device,
+    migrated: !currentPortable || !currentDevice,
+    unsupportedFutureSchema: portableFuture || deviceFuture,
+  }
 }
 
 export function inspectLocalPortableState(storage = browserStorage()) {

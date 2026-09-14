@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import packageInfo from '../package.json'
 import { catalog } from './data/catalog.js'
 import Navigation from './components/Navigation.jsx'
 import Clock from './components/Clock.jsx'
@@ -8,11 +9,12 @@ import AccountPanel from './account/AccountPanel.jsx'
 import { useAuth } from './auth/AuthContext.jsx'
 import { useCloudProfile } from './cloud/CloudProfileContext.jsx'
 import { useSync } from './sync/SyncContext.jsx'
-import { isDesktop } from './platform/index.js'
+import { isDesktop, openExternal } from './platform/index.js'
 
 const validViews = new Set(['home', 'store', 'profile', 'settings'])
 const historyView = () => validViews.has(window.history.state?.tornadoView) ? window.history.state.tornadoView : 'home'
 const rootHistoryState = { tornadoSession: true, tornadoView: 'home' }
+const latestReleaseUrl = 'https://github.com/kfeeney1/tornado-app-launcher/releases/latest'
 
 function syncLabel(status) {
   if (status === 'syncing' || status === 'initializing') return 'Syncing…'
@@ -124,6 +126,7 @@ export default function App() {
           <PageHead title="Settings" text="Make Tornado feel like yours." onHome={() => navigate('home')} />
           <div className="panel"><h2>Appearance</h2><p>Theme follows your Tornado account across supported clients.</p><div className="segmented" aria-label="Appearance"><button className={theme === 'dark' ? 'selected' : ''} onClick={() => setAppearance('dark')}>Dark</button><button className={theme === 'light' ? 'selected' : ''} onClick={() => setAppearance('light')}>Light</button></div></div>
           <div className="panel"><h2>Performance</h2><p>This setting area is device-specific. Tornado can keep its own interface lightweight, but browser settings do not change native game FPS.</p></div>
+          <div className="panel"><h2>About</h2><p>Tornado v{packageInfo.version}</p><p className="field-help">Windows updates are currently distributed through the official Tornado GitHub Releases page.</p><button onClick={() => openExternal(latestReleaseUrl)}>Check for updates</button></div>
         </section>}
 
         {view === 'profile' && <section>

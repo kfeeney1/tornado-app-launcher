@@ -3,25 +3,33 @@ name: Release Windows
 on:
   workflow_dispatch:
     inputs:
+      operation:
+        description: Build a release candidate or promote the validated draft to stable
+        required: true
+        type: choice
+        options:
+          - candidate
+          - promote
+        default: candidate
       release_ref:
-        description: Commit SHA or ref to release
+        description: Commit SHA or ref to release (candidate only)
         required: true
         default: main
       version:
         description: SemVer matching package.json (for example 0.1.0)
         required: true
         default: 0.1.0
-      publish:
-        description: Publish GitHub Release after validation
-        required: true
-        type: boolean
-        default: false
 
 permissions:
   contents: read
 
+concurrency:
+  group: windows-release-${{ inputs.version }}
+  cancel-in-progress: false
+
 jobs:
   validate:
+    if: ${{ inputs.operation == 'candidate' }}
     runs-on: ubuntu-latest
     outputs:
       source_sha: ${{ steps.source.outputs.sha }}
@@ -54,6 +62,7 @@ jobs:
         run: node scripts/validate-release.mjs
 
   package:
+    if: ${{ inputs.operation == 'candidate' }}
     needs: validate
     runs-on: windows-latest
     permissions:
@@ -98,57 +107,107 @@ jobs:
           foreach ($process in $running) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
           if (-not $started.HasExited) { Stop-Process -Id $started.Id -Force -ErrorAction SilentlyContinue }
       - run: npm run desktop:build
-      - name: Generate SHA-256 checksum
+      - name: Generate checksum and provenance manifest
+        shell: pwsh
+        env:
+          TORNADO_RELEASE_VERSION: ${{ inputs.version }}
+          TORNADO_RELEASE_SHA: ${{ needs.validate.outputs.source_sha }}
+          TORNADO_RELEASE_TAG: v${{ inputs.version }}
+          TORNADO_RELEASE_CHANNEL: stable
+          TORNADO_RELEASE_SIGNED: ${{ secrets.WINDOWS_CSC_LINK != '' && secrets.WINDOWS_CSC_KEY_PASSWORD != '' }}
+          TORNADO_RELEASE_INSTALLER: release/Tornado-Setup-${{ inputs.version }}.exe
+        run: |
+          $installer = 'release/Tornado-Setup-${{ inputs.version }}.exe'
+          if (-not (Test-Path $installer)) { throw 'Windows installer was not produced.' }
+          $hash = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant()
+          "$hash  Tornado-Setup-${{ inputs.version }}.exe" | Set-Content -Encoding ascii "$installer.sha256"
+          node scripts/create-release-manifest.mjs
+      - name: Verify generated checksum
         shell: pwsh
         run: |
-          $installer = Get-ChildItem release -Filter 'Tornado-Setup-*.exe' | Select-Object -First 1
-          if (-not $installer) { throw 'Windows installer was not produced.' }
-          $hash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
-          "$hash  $($installer.Name)" | Set-Content -Encoding ascii "$($installer.FullName).sha256"
+          $installer = 'release/Tornado-Setup-${{ inputs.version }}.exe'
+          $expected = ((Get-Content "$installer.sha256") -split '\s+')[0]
+          $actual = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw 'Generated installer checksum does not verify.' }
       - uses: actions/upload-artifact@v4
         with:
           name: tornado-windows-release-${{ inputs.version }}
           path: |
             release/Tornado-Setup-${{ inputs.version }}.exe
             release/Tornado-Setup-${{ inputs.version }}.exe.sha256
+            release/release-manifest.json
           if-no-files-found: error
 
-  publish:
-    if: ${{ inputs.publish }}
+  candidate:
+    if: ${{ inputs.operation == 'candidate' }}
     needs: [validate, package]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.validate.outputs.source_sha }}
-      - name: Verify pinned source SHA
-        run: |
-          actual="$(git rev-parse HEAD)"
-          test "$actual" = "${{ needs.validate.outputs.source_sha }}" || {
-            echo "Expected source SHA ${{ needs.validate.outputs.source_sha }}, got $actual"
-            exit 1
-          }
       - uses: actions/download-artifact@v4
         with:
           name: tornado-windows-release-${{ inputs.version }}
           path: release
-      - name: Refuse existing tag rewrite
+      - name: Refuse immutable version reuse
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if git ls-remote --exit-code --tags origin "refs/tags/v${{ inputs.version }}"; then
+          if gh release view "v${{ inputs.version }}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release v${{ inputs.version }} already exists; refusing to replace immutable release assets."
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags "https://github.com/${{ github.repository }}.git" "refs/tags/v${{ inputs.version }}"; then
             echo "Tag v${{ inputs.version }} already exists; refusing to rewrite it."
             exit 1
           fi
-      - name: Publish GitHub Release
+      - name: Create draft release candidate from validated artifacts
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "v${{ inputs.version }}" \
             release/Tornado-Setup-${{ inputs.version }}.exe \
             release/Tornado-Setup-${{ inputs.version }}.exe.sha256 \
+            release/release-manifest.json \
+            --repo "${{ github.repository }}" \
             --target "${{ needs.validate.outputs.source_sha }}" \
+            --title "Tornado v${{ inputs.version }} release candidate" \
+            --generate-notes \
+            --draft
+          echo "Release candidate created as a GitHub draft. Validate it before running the promote operation."
+
+  promote:
+    if: ${{ inputs.operation == 'promote' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download and validate the existing candidate assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir release
+          metadata="$(gh release view "v${{ inputs.version }}" --repo "${{ github.repository }}" --json isDraft,tagName,assets)"
+          test "$(echo "$metadata" | jq -r '.isDraft')" = "true" || { echo 'Only a draft release candidate may be promoted.'; exit 1; }
+          test "$(echo "$metadata" | jq -r '.tagName')" = "v${{ inputs.version }}" || { echo 'Release tag/version mismatch.'; exit 1; }
+          gh release download "v${{ inputs.version }}" --repo "${{ github.repository }}" --dir release
+          test -f "release/Tornado-Setup-${{ inputs.version }}.exe"
+          test -f "release/Tornado-Setup-${{ inputs.version }}.exe.sha256"
+          test -f release/release-manifest.json
+          expected="$(awk '{print $1}' "release/Tornado-Setup-${{ inputs.version }}.exe.sha256")"
+          actual="$(sha256sum "release/Tornado-Setup-${{ inputs.version }}.exe" | awk '{print $1}')"
+          test "$actual" = "$expected" || { echo 'Release candidate checksum verification failed.'; exit 1; }
+          test "$(jq -r '.version' release/release-manifest.json)" = "${{ inputs.version }}"
+          test "$(jq -r '.tag' release/release-manifest.json)" = "v${{ inputs.version }}"
+          test "$(jq -r '.channel' release/release-manifest.json)" = "stable"
+          test "$(jq -r '.sha256' release/release-manifest.json)" = "$actual"
+      - name: Promote identical candidate artifacts to stable
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release edit "v${{ inputs.version }}" \
+            --repo "${{ github.repository }}" \
             --title "Tornado v${{ inputs.version }}" \
-            --generate-notes
+            --draft=false \
+            --latest
+          echo "Stable release promoted without rebuilding or replacing candidate artifacts."

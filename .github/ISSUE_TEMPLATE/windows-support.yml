@@ -1,0 +1,71 @@
+name: Windows support issue
+description: Report a Tornado Windows reliability, install, update, discovery or launch problem.
+title: "[Windows] "
+labels: ["windows", "support"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do not include passwords, access/refresh tokens, Firebase credentials or other secrets. Use Settings → About → Copy diagnostics where available.
+  - type: input
+    id: tornado-version
+    attributes:
+      label: Tornado version
+      placeholder: 0.1.1
+    validations:
+      required: true
+  - type: input
+    id: windows-version
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2
+    validations:
+      required: true
+  - type: dropdown
+    id: install-state
+    attributes:
+      label: Installation state
+      options:
+        - Clean install
+        - Upgrade from an earlier Tornado release
+        - Existing installation
+        - Reinstall after uninstall
+    validations:
+      required: true
+  - type: textarea
+    id: attempted
+    attributes:
+      label: What did you try?
+      description: Describe the action immediately before the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+    validations:
+      required: true
+  - type: input
+    id: error-id
+    attributes:
+      label: Tornado error identifier
+      description: Example TORNADO-UI-001, if one was shown.
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Safe diagnostics
+      description: Paste Settings → About → Copy diagnostics. Remove anything you believe is private before posting.
+      render: text
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I have not included passwords, tokens, credentials or private keys.
+          required: true

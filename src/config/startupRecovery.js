@@ -14,6 +14,14 @@ let lastRecovery = Object.freeze({ portable: 'not-run', device: 'not-run' })
 
 const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value)
 
+function browserStorage() {
+  try {
+    return globalThis.localStorage ?? null
+  } catch {
+    return null
+  }
+}
+
 function safeRead(storage, key) {
   try {
     const raw = storage?.getItem(key)
@@ -57,7 +65,7 @@ function recoverOne({ storage, currentKey, backupKey, validate, currentVersion }
   return 'restored-last-known-good'
 }
 
-export function runStartupConfigRecovery(storage = globalThis.localStorage ?? null) {
+export function runStartupConfigRecovery(storage = browserStorage()) {
   const result = Object.freeze({
     portable: recoverOne({
       storage,

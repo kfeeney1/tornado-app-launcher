@@ -11,7 +11,14 @@ files:
   - package.json
 win:
   target:
-    - target: portable
+    - target: nsis
       arch:
         - x64
-artifactName: Tornado-${version}-${arch}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: false
+  createStartMenuShortcut: true
+  shortcutName: Tornado
+artifactName: Tornado-Setup-${version}.${ext}

@@ -7,7 +7,8 @@ import { isAppInstalled } from '../platform/installedAppsService.js'
 
 export default function LauncherCard({ item, onRemove }) {
   const target = resolveLaunchTarget(item, platform.kind)
-  const nativeLaunchAvailable = target.type !== 'protocol' || platform.can(PLATFORM_CAPABILITIES.NATIVE_APP_LAUNCH)
+  const requiresNativeLaunch = ['protocol', 'installed-app'].includes(target.type)
+  const nativeLaunchAvailable = !requiresNativeLaunch || platform.can(PLATFORM_CAPABILITIES.NATIVE_APP_LAUNCH)
   const discoveryAvailable = platform.can(PLATFORM_CAPABILITIES.INSTALLED_APP_DISCOVERY)
   const gameResolutionAvailable = item.type === 'game' && platform.can(PLATFORM_CAPABILITIES.GAME_RESOLUTION)
   const [installed, setInstalled] = useState(null)
@@ -40,6 +41,11 @@ export default function LauncherCard({ item, onRemove }) {
     if ((gameResolutionAvailable || discoveryAvailable) && installed === false) status = 'Install'
     else if ((gameResolutionAvailable || discoveryAvailable) && installed === true) status = 'Launch'
     else status = nativeLaunchAvailable ? 'Launch game' : 'Install'
+  } else if (target.type === 'installed-app') {
+    if (!nativeLaunchAvailable) status = 'Web'
+    else if (installed === true) status = 'Installed · Launch'
+    else if (installed === false) status = 'Web'
+    else status = 'Checking…'
   } else if (installed === true) {
     status = 'Installed · Web'
   }

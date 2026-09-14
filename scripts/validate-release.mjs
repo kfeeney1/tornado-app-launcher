@@ -5,6 +5,7 @@ const builder = fs.readFileSync(new URL('../electron-builder.yml', import.meta.u
 
 if (!/^\d+\.\d+\.\d+$/.test(pkg.version)) throw new Error(`Invalid Tornado version: ${pkg.version}`)
 if (pkg.productName !== 'Tornado') throw new Error('package.json productName must remain Tornado')
+if (!pkg.scripts?.['desktop:build']?.includes('--publish never')) throw new Error('desktop:build must explicitly disable electron-builder implicit publishing')
 if (!builder.includes('appId: ie.tornado.launcher')) throw new Error('Unexpected Windows appId')
 if (!builder.includes('productName: Tornado')) throw new Error('Unexpected Windows product name')
 if (!builder.includes('target: nsis')) throw new Error('Phase 8 primary Windows target must be NSIS')

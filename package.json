@@ -9,7 +9,7 @@
     "dev": "vite",
     "build": "vite build",
     "desktop:dev": "node electron/scripts/dev.mjs",
-    "desktop:build": "npm run build && npx --yes electron-builder@26.15.3 --win --x64 --config electron-builder.yml",
+    "desktop:build": "npm run build && npx --yes electron-builder@26.15.3 --win --x64 --config electron-builder.yml --publish never",
     "desktop:dir": "npm run build && npx --yes electron-builder@26.15.3 --dir --config electron-builder.yml",
     "desktop:test": "node --test tests/platform-foundation.test.mjs tests/electron-security.test.mjs tests/phase-7-desktop-lifecycle.test.mjs",
     "lint": "eslint .",

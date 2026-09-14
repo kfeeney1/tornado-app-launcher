@@ -84,3 +84,16 @@ test('corrupt config without a valid backup remains diagnosable for normal migra
     device: 'invalid-no-backup',
   })
 })
+
+test('unavailable storage does not throw during startup recovery', () => {
+  const storage = {
+    getItem() { throw new Error('storage blocked') },
+    setItem() { throw new Error('storage blocked') },
+  }
+
+  assert.doesNotThrow(() => runStartupConfigRecovery(storage))
+  assert.deepEqual(runStartupConfigRecovery(storage), {
+    portable: 'corrupt-no-backup',
+    device: 'corrupt-no-backup',
+  })
+})

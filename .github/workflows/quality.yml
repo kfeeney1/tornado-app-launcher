@@ -42,8 +42,28 @@ jobs:
       - run: npm ci
       - run: npm run desktop:test
       - run: npm run desktop:build
+      - name: Smoke packaged Tornado
+        shell: pwsh
+        run: |
+          $package = Get-ChildItem -Path release -Filter 'Tornado-*.exe' | Select-Object -First 1
+          if (-not $package) { throw 'Packaged Tornado executable was not produced.' }
+
+          $started = Start-Process -FilePath $package.FullName -PassThru
+          Start-Sleep -Seconds 10
+
+          $running = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -like 'Tornado*' })
+          if ($started.HasExited -and $running.Count -eq 0) {
+            throw "Packaged Tornado exited during startup with code $($started.ExitCode)."
+          }
+
+          foreach ($process in $running) {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+          }
+          if (-not $started.HasExited) {
+            Stop-Process -Id $started.Id -Force -ErrorAction SilentlyContinue
+          }
       - uses: actions/upload-artifact@v4
         with:
-          name: tornado-windows-phase-1
+          name: tornado-windows-phase-7
           path: release/*.exe
           if-no-files-found: error

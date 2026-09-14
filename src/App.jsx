@@ -5,6 +5,7 @@ import Navigation from './components/Navigation.jsx'
 import Clock from './components/Clock.jsx'
 import LauncherCard from './components/LauncherCard.jsx'
 import AppIcon from './components/AppIcon.jsx'
+import SupportDiagnostics from './components/SupportDiagnostics.jsx'
 import AccountPanel from './account/AccountPanel.jsx'
 import { useAuth } from './auth/AuthContext.jsx'
 import { useCloudProfile } from './cloud/CloudProfileContext.jsx'
@@ -126,7 +127,7 @@ export default function App() {
           <PageHead title="Settings" text="Make Tornado feel like yours." onHome={() => navigate('home')} />
           <div className="panel"><h2>Appearance</h2><p>Theme follows your Tornado account across supported clients.</p><div className="segmented" aria-label="Appearance"><button className={theme === 'dark' ? 'selected' : ''} onClick={() => setAppearance('dark')}>Dark</button><button className={theme === 'light' ? 'selected' : ''} onClick={() => setAppearance('light')}>Light</button></div></div>
           <div className="panel"><h2>Performance</h2><p>This setting area is device-specific. Tornado can keep its own interface lightweight, but browser settings do not change native game FPS.</p></div>
-          <div className="panel"><h2>About</h2><p>Tornado v{packageInfo.version}</p><p className="field-help">Windows updates are currently distributed through the official Tornado GitHub Releases page.</p><button onClick={() => openExternal(latestReleaseUrl)}>Check for updates</button></div>
+          <div className="panel"><h2>About</h2><p>Tornado v{packageInfo.version}</p><p className="field-help">Windows updates use the official Tornado stable GitHub Releases source. Automatic installation stays disabled until trusted Windows signing is available.</p><button onClick={() => openExternal(latestReleaseUrl)}>Check for updates</button>{!isDesktop() && <button onClick={() => openExternal(latestReleaseUrl)}>Download Tornado for Windows</button>}<SupportDiagnostics syncStatus={syncStatus} /></div>
         </section>}
 
         {view === 'profile' && <section>

@@ -5,6 +5,7 @@ const { pathToFileURL } = require('node:url')
 const { resolveNativeLaunchTarget } = require('./nativeLaunch.cjs')
 const { discoverInstalledApps } = require('./installedApps.cjs')
 const { resolveInstalledGame } = require('./gameResolver.cjs')
+const { createLocalLogger } = require('./logger.cjs')
 
 const DEV_RENDERER_URL = process.env.TORNADO_RENDERER_URL || ''
 const isDev = Boolean(DEV_RENDERER_URL)
@@ -14,6 +15,7 @@ const MIN_WINDOW_BOUNDS = Object.freeze({ width: 900, height: 620 })
 const WINDOW_STATE_FILE = 'window-state.json'
 let mainWindow = null
 let windowStateTimer = null
+let logger = null
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
 if (!hasSingleInstanceLock) app.quit()
@@ -64,6 +66,7 @@ function readWindowState() {
     if ('x' in candidate && !intersectsDisplay(candidate)) return { ...DEFAULT_WINDOW_BOUNDS }
     return candidate
   } catch {
+    logger?.warn('window-state-recovery')
     return { ...DEFAULT_WINDOW_BOUNDS }
   }
 }
@@ -73,8 +76,8 @@ function persistWindowState(win) {
   const bounds = win.getBounds()
   try {
     fs.writeFileSync(windowStatePath(), JSON.stringify(bounds), 'utf8')
-  } catch (error) {
-    console.warn('Unable to persist Tornado window state', error)
+  } catch {
+    logger?.warn('window-state-persist-failed')
   }
 }
 
@@ -100,17 +103,30 @@ function registerIpc() {
   ipcMain.handle('platform:launch-native-app', async (_event, payload) => {
     const target = resolveNativeLaunchTarget(payload)
     if (!target) throw new Error('Unsupported native launch target')
-    await shell.openExternal(target)
-    return true
+    try {
+      await shell.openExternal(target)
+      return true
+    } catch (error) {
+      logger?.error('native-launch-failed', { errorName: error?.name || 'Error' })
+      throw error
+    }
   })
 
-  ipcMain.handle('platform:get-installed-apps', async () => discoverInstalledApps())
+  ipcMain.handle('platform:get-installed-apps', async () => {
+    try { return await discoverInstalledApps() }
+    catch (error) { logger?.error('app-discovery-failed', { errorName: error?.name || 'Error' }); throw error }
+  })
 
   ipcMain.handle('platform:resolve-game', async (_event, appId) => {
     if (typeof appId !== 'string') throw new Error('Unsupported game resolution request')
-    const resolution = await resolveInstalledGame(appId)
-    if (!resolution) throw new Error('Unsupported game resolution request')
-    return resolution
+    try {
+      const resolution = await resolveInstalledGame(appId)
+      if (!resolution) throw new Error('Unsupported game resolution request')
+      return resolution
+    } catch (error) {
+      logger?.error('game-resolution-failed', { errorName: error?.name || 'Error' })
+      throw error
+    }
   })
 }
 
@@ -145,6 +161,7 @@ function createWindow() {
       if (isAllowedExternalUrl(url)) void shell.openExternal(url)
     }
   })
+  win.webContents.on('did-fail-load', (_event, errorCode) => logger?.error('renderer-load-failed', { errorCode }))
 
   win.on('resize', () => scheduleWindowStateSave(win))
   win.on('move', () => scheduleWindowStateSave(win))
@@ -166,6 +183,8 @@ if (hasSingleInstanceLock) {
   app.on('second-instance', () => focusMainWindow())
 
   app.whenReady().then(() => {
+    logger = createLocalLogger(path.join(app.getPath('userData'), 'logs'))
+    logger.info('startup', { version: app.getVersion(), platform: process.platform })
     registerIpc()
     createWindow()
     app.on('activate', () => {
@@ -176,5 +195,6 @@ if (hasSingleInstanceLock) {
 }
 
 app.on('window-all-closed', () => {
+  logger?.info('shutdown', { platform: process.platform })
   if (process.platform !== 'darwin') app.quit()
 })

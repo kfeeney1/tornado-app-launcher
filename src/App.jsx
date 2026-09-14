@@ -8,6 +8,7 @@ import AccountPanel from './account/AccountPanel.jsx'
 import { useAuth } from './auth/AuthContext.jsx'
 import { useCloudProfile } from './cloud/CloudProfileContext.jsx'
 import { useSync } from './sync/SyncContext.jsx'
+import { isDesktop } from './platform/index.js'
 
 const validViews = new Set(['home', 'store', 'profile', 'settings'])
 const historyView = () => validViews.has(window.history.state?.tornadoView) ? window.history.state.tornadoView : 'home'
@@ -39,6 +40,11 @@ export default function App() {
     }
     const onPopState = event => {
       if (event.state?.tornadoExitBoundary) {
+        if (isDesktop()) {
+          window.history.pushState(rootHistoryState, '')
+          setView('home')
+          return
+        }
         if (window.confirm('Exit Tornado?')) { window.history.back(); return }
         window.history.pushState(rootHistoryState, '')
         setView('home')

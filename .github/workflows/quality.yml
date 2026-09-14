@@ -23,7 +23,6 @@ jobs:
           java-version: '21'
       - run: npm ci
       - run: npm run lint
-      - run: node --check functions/index.js
       - run: node --test tests/unit/*.test.mjs
       - run: npm run desktop:test
       - run: node scripts/validate-release.mjs

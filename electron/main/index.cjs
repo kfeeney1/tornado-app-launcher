@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, shell, screen } = require('electron')
 const fs = require('node:fs')
 const path = require('node:path')
 const { pathToFileURL } = require('node:url')
-const { resolveNativeLaunchTarget } = require('./nativeLaunch.cjs')
+const { resolveNativeLaunchRequest } = require('./nativeLaunch.cjs')
 const { discoverInstalledApps } = require('./installedApps.cjs')
 const { resolveInstalledGame } = require('./gameResolver.cjs')
 const { createLocalLogger } = require('./logger.cjs')
@@ -101,10 +101,15 @@ function registerIpc() {
   })
 
   ipcMain.handle('platform:launch-native-app', async (_event, payload) => {
-    const target = resolveNativeLaunchTarget(payload)
-    if (!target) throw new Error('Unsupported native launch target')
+    const request = await resolveNativeLaunchRequest(payload)
+    if (!request) throw new Error('Unsupported native launch target')
     try {
-      await shell.openExternal(target)
+      if (request.kind === 'path') {
+        const errorMessage = await shell.openPath(request.value)
+        if (errorMessage) throw new Error('Native application failed to open')
+      } else {
+        await shell.openExternal(request.value)
+      }
       return true
     } catch (error) {
       logger?.error('native-launch-failed', { errorName: error?.name || 'Error' })

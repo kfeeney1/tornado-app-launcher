@@ -4,9 +4,13 @@ import AppWithDevices from './devices/AppWithDevices.jsx'
 import AuthScreen, { AuthLoading } from './auth/AuthScreen.jsx'
 import { AuthProvider, useAuth } from './auth/AuthContext.jsx'
 import { CloudProfileProvider } from './cloud/CloudProfileContext.jsx'
+import AppErrorBoundary from './components/AppErrorBoundary.jsx'
+import { runStartupConfigRecovery } from './config/startupRecovery.js'
 import { DeviceProvider } from './devices/DeviceContext.jsx'
 import { SyncProvider } from './sync/SyncContext.jsx'
 import './styles.css'
+
+runStartupConfigRecovery()
 
 function TornadoRoot() {
   const { user, isLoading } = useAuth()
@@ -25,8 +29,10 @@ function TornadoRoot() {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <AuthProvider>
-      <TornadoRoot />
-    </AuthProvider>
+    <AppErrorBoundary>
+      <AuthProvider>
+        <TornadoRoot />
+      </AuthProvider>
+    </AppErrorBoundary>
   </StrictMode>,
 )

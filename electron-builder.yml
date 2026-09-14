@@ -21,4 +21,5 @@ nsis:
   createDesktopShortcut: false
   createStartMenuShortcut: true
   shortcutName: Tornado
+  deleteAppDataOnUninstall: false
 artifactName: Tornado-Setup-${version}.${ext}

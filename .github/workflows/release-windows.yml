@@ -23,10 +23,15 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    outputs:
+      source_sha: ${{ steps.source.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.release_ref }}
+      - name: Capture immutable source SHA
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -64,7 +69,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.release_ref }}
+          ref: ${{ needs.validate.outputs.source_sha }}
+      - name: Verify pinned source SHA
+        shell: pwsh
+        run: |
+          $actual = git rev-parse HEAD
+          if ($actual -ne '${{ needs.validate.outputs.source_sha }}') { throw "Expected source SHA ${{ needs.validate.outputs.source_sha }}, got $actual" }
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -106,14 +116,21 @@ jobs:
 
   publish:
     if: ${{ inputs.publish }}
-    needs: package
+    needs: [validate, package]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.release_ref }}
+          ref: ${{ needs.validate.outputs.source_sha }}
+      - name: Verify pinned source SHA
+        run: |
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "${{ needs.validate.outputs.source_sha }}" || {
+            echo "Expected source SHA ${{ needs.validate.outputs.source_sha }}, got $actual"
+            exit 1
+          }
       - uses: actions/download-artifact@v4
         with:
           name: tornado-windows-release-${{ inputs.version }}
@@ -133,6 +150,6 @@ jobs:
           gh release create "v${{ inputs.version }}" \
             release/Tornado-Setup-${{ inputs.version }}.exe \
             release/Tornado-Setup-${{ inputs.version }}.exe.sha256 \
-            --target "${{ inputs.release_ref }}" \
+            --target "${{ needs.validate.outputs.source_sha }}" \
             --title "Tornado v${{ inputs.version }}" \
             --generate-notes

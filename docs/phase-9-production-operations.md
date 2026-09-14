@@ -47,7 +47,7 @@ Urgency does not bypass normal validation.
 
 ## Reinstall and uninstall
 
-Cloud account data is not removed by Windows uninstall. Device-local state is treated as user-owned application state and must not be deleted unexpectedly. Any future installer change that removes local state requires explicit tests and release-note disclosure.
+Cloud account data is not removed by Windows uninstall. The NSIS package explicitly preserves Tornado application data (`deleteAppDataOnUninstall: false`) so device-local settings remain available for reinstall. Any future installer change that removes local state requires explicit tests and release-note disclosure.
 
 ## Firebase and compatibility
 
@@ -84,7 +84,11 @@ Production notes should explain major user-visible improvements, important fixes
 
 ## Supportability
 
-Phase 9 does not add remote telemetry. Support diagnostics must stay local and limited to product version, client/platform type, configuration schema versions, sync status and release/update status. Diagnostics and logs must never include auth tokens, Firebase credentials, Windows usernames, full executable paths or private user data.
+Phase 9 does not add remote telemetry. Settings → About exposes safe local support diagnostics containing only Tornado version, client/platform type, portable/device configuration schema versions, sync status and update mode.
+
+Packaged Windows operational logs are stored beneath Electron's application user-data directory in `logs/tornado.log`, with one rotated `tornado.log.1` backup. Each active log is bounded to approximately 512 KiB. Logs cover startup/shutdown, renderer-load failure, window-state recovery/persistence failure, installed-app discovery failure, game-resolution failure and native-launch failure.
+
+Diagnostics and logs must never include auth tokens, Firebase credentials, Windows usernames, full executable paths, email addresses or private user data. Sensitive metadata keys are redacted and path-like text is sanitized before writing.
 
 ## External prerequisite
 

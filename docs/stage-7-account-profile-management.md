@@ -2,7 +2,7 @@
 
 ## Identity architecture
 
-Firebase Authentication remains the authority for the Tornado account identity and sign-in email. The stable Firebase Auth `uid` continues to own all private cloud data under `users/{uid}`.
+Firebase Authentication remains the authority for the Tornado account identity and sign-in email. The stable Firebase Auth `uid` owns all private cloud data under `users/{uid}`.
 
 The Firestore root profile remains schema version 1:
 
@@ -15,140 +15,100 @@ users/{uid}
   updatedAt: timestamp
 ```
 
-`users/{uid}.displayName` is the portable Tornado profile value and the account UI source of truth. When the user edits it, Tornado updates Firestore and mirrors the same value to Firebase Auth `displayName`. There is no username, public profile, uniqueness requirement, or second display-name namespace.
-
-Firebase Auth is authoritative for `email`. The Firestore profile email is only a convenience mirror. Tornado synchronizes that mirror from Auth after Auth reports the current address; it never changes Firestore email optimistically before an Auth email operation succeeds.
+`users/{uid}.displayName` is the portable Tornado profile value and the account UI source of truth. Firebase Auth is authoritative for `email`; Firestore stores only a convenience mirror.
 
 ## Provider awareness
 
-The account UI reads Firebase Auth provider IDs. Password-specific controls are shown only when the account includes the `password` provider. Stage 7 does not add OAuth providers. A provider that cannot use password reauthentication therefore does not receive Change Email or Change Password controls.
+Password-specific controls are shown only when the account includes the `password` provider. Password accounts reauthenticate with the current password before sensitive operations. A future OAuth provider must add its supported reauthentication ceremony for actions that require one.
 
-The delete backend is provider-neutral, but the current Stage 7 client can perform the required recent-login reauthentication only for password accounts. A future OAuth provider must add that provider's supported reauthentication ceremony before enabling deletion from that provider's UI.
+## Email verification and account changes
 
-## Email verification
-
-Unverified users can keep using the launcher. Profile shows the verification state in text and offers:
-
-- **Send verification email**, implemented with Firebase Auth `sendEmailVerification`.
-- **I've verified my email**, which calls Firebase Auth `reload` and refreshes account state.
-
-Verification failures and throttling are mapped to user-facing messages rather than raw Firebase errors. Verification is not queued offline.
-
-## Changing email
-
-Password accounts use this sequence:
-
-1. validate the proposed email locally;
-2. reauthenticate the current account with `EmailAuthProvider.credential` and `reauthenticateWithCredential`;
-3. call Firebase Auth `verifyBeforeUpdateEmail(user, newEmail)`;
-4. keep the existing sign-in email until Firebase completes the verification-before-update flow;
-5. when Firebase Auth subsequently reports the new email, synchronize the convenience Firestore profile email.
-
-The UID does not change, so cloud config, devices, migration ownership and sync ownership remain attached to the same account.
-
-## Password management
-
-Password accounts can change password by entering current password, new password and confirmation. Tornado validates required fields, an 8-character minimum consistent with the existing product policy, and confirmation matching. It then reauthenticates and calls Firebase Auth `updatePassword`.
-
-The existing signed-out Forgot Password flow remains unchanged. A signed-in password user can also request a reset email from Profile.
-
-Passwords are never written to Firestore, localStorage, analytics, console logs or Tornado telemetry.
+Unverified users can continue using the launcher. Profile can send a Firebase verification email and refresh the current verification state. Password accounts can change email using `verifyBeforeUpdateEmail` and can change password after reauthentication. Passwords are never written to Firestore or local storage.
 
 ## Sign out
 
-Sign out still uses the single Stage 1 Auth provider. Losing `user` unmounts the Stage 4 Sync provider and Stage 6 Device provider, which stops their listeners/activity. Account-scoped portable caches remain available for safe account switching, while device-specific configuration remains local.
+Sign out uses the shared Firebase Auth provider. Account-scoped portable caches remain available for account switching, while genuine device-specific configuration stays local.
 
 ## Account deletion architecture
 
-Stage 7 deliberately does **not** loosen Firestore Rules. The existing root profile rule still rejects client deletion. Complete deletion is performed by the callable Cloud Function `deleteTornadoAccount` using Firebase Admin SDK privileges only in `functions/`.
+Tornado account deletion intentionally uses Firebase Authentication and Firestore directly. It does **not** require Cloud Functions, Cloud Build, Artifact Registry, Firebase Admin credentials, or a privileged server-side deletion endpoint.
 
-The client never receives Admin credentials.
+This keeps account lifecycle functionality on the same Firebase client architecture used by the rest of Tornado and avoids adding paid Google Cloud infrastructure solely for account deletion.
 
-### Reauthentication
+### Security boundary
 
-For the current email/password provider, the client reauthenticates with the current password before calling the function. The function independently checks the authenticated ID token and requires `auth_time` to be no more than five minutes old. A stale long-lived session therefore cannot invoke deletion successfully.
+Firestore Security Rules remain the authority for cloud-data access. A signed-in user can delete only documents owned by the same Firebase UID. The client receives no Admin SDK credentials and cannot delete another user's data.
+
+The current account-owned Firestore shape is explicitly known:
+
+```text
+users/{uid}
+users/{uid}/config/appearance
+users/{uid}/config/launcher
+users/{uid}/config/preferences
+users/{uid}/devices/{deviceId}
+```
+
+Root-profile deletion is permitted only when `request.auth.uid == uid`. Config and device deletion keep the same owner-only restrictions.
+
+Because client Firestore deletion is not recursive, any future user-owned subcollection added beneath `users/{uid}` must also be added to the account-deletion helper and covered by security tests. This requirement is deliberate and prevents Tornado from pretending that unknown future data is automatically deleted.
+
+### Recent authentication
+
+Password accounts reauthenticate with the current password before deletion. The deletion helper also refreshes the Firebase ID token and verifies that its `auth_time` is no more than five minutes old. Firebase Auth's own account-deletion API also enforces recent authentication.
+
+A stale session therefore cannot silently perform account deletion.
 
 ### Deletion order
 
-The backend executes:
+The client executes:
 
 ```text
 recently authenticated user
         ↓
-recursive delete users/{uid}
+read the current user's device document IDs
         ↓
-delete Firebase Auth user uid
+delete known config documents and device documents
         ↓
-return success
+delete users/{uid} profile
         ↓
-client clears account-owned local cache
+delete the current Firebase Auth identity
+        ↓
+clear account-owned local cache
         ↓
 clean signed-out Tornado state
 ```
 
-Firestore is deleted first because deleting Auth first would remove the user's identity while leaving account-owned cloud data behind. Admin SDK `recursiveDelete(users/{uid})` removes the root profile and every current or future nested account-owned document, including:
+Firestore is removed before Authentication because deleting the Auth identity first could strand private cloud data behind an identity that no longer exists.
 
-- `users/{uid}/config/appearance`
-- `users/{uid}/config/launcher`
-- `users/{uid}/config/preferences`
-- `users/{uid}/devices/{deviceId}`
+Writes are batched below Firestore's batch-size limit. If cloud cleanup fails, Auth deletion is not attempted and local account data is not cleared, so the user remains able to retry.
 
-It does not touch global Tornado catalogue data or another UID.
-
-### Partial failure and retry safety
-
-The workflow is intentionally retryable rather than pretending the two Firebase products can be changed atomically.
-
-- If Firestore recursive deletion fails, Auth deletion is not attempted. The account stays signable and the user can retry.
-- If Firestore succeeds but Auth deletion fails, the function reports failure. Retrying is safe because recursively deleting an already-empty user tree is harmless, after which Auth deletion is attempted again.
-- If the Auth user is already absent when the backend reaches Auth deletion, deletion is treated as complete.
-- Account-owned local data is not cleared until the server call returns success. This preserves recovery information if the server operation fails.
+If Firestore cleanup succeeds but Firebase Auth deletion fails, the account remains authenticated and the operation can be retried; deleting already-missing known Firestore documents is harmless.
 
 ## Local cleanup
 
-After confirmed server deletion Tornado removes account-owned keys for that UID, including:
-
-- `tornado-account-portable-v1:{uid}`
-- `tornado-account-portable-meta-v1:{uid}`
-- `tornado-sync-pending-v1:{uid}`
-- matching legacy account-ownership metadata
-
-Test-mode account/profile/device/cloud keys are also cleared by the deterministic test adapter.
-
-Tornado intentionally preserves genuine device-level state, including `tornado-device-config-v1` and its stable installation ID. Deleting an account is not a factory reset of the client device.
-
-## Firestore security
-
-Stage 7 does not broaden client rules. Users can still read/write only their own `users/{uid}` hierarchy, configuration and device records. Root profile deletion remains denied from client SDKs; the trusted deletion function bypasses client rules through Admin SDK.
+After confirmed Firebase Auth deletion Tornado removes account-owned local keys for that UID, including portable cache, sync metadata and pending-sync state. Genuine device-level configuration, including the stable installation identity, is intentionally preserved. Deleting an account is not a factory reset of the device.
 
 ## Offline behavior
 
-Launcher use and existing local-first Stage 4 behavior remain available offline. Sensitive account operations are explicit online actions and are never silently queued. Delete Account checks connectivity before submitting; Firebase Auth/Functions network failures are surfaced with retryable messages.
+Account deletion is an explicit online-only action. It is never queued for later execution. Network or Firebase errors are surfaced to the user and the account remains recoverable unless the complete cloud cleanup and Auth deletion sequence succeeds.
 
 ## Test coverage
 
-Stage 7 adds deterministic unit and Playwright coverage for:
+Stage 7 covers display-name validation, account email/password validation, provider-aware controls, password changes, profile persistence, local account cleanup, device-state preservation and destructive test-account deletion. Firestore emulator tests protect per-user isolation, while the production deletion implementation relies on the same owner-only rules rather than elevated credentials.
 
-- display-name normalization and validation;
-- email/password validation;
-- provider-aware password controls;
-- account-local cleanup while preserving device configuration;
-- display-name persistence across reload;
-- a second signed-in client loading the updated profile;
-- verification-email action without blocking launcher use;
-- password change followed by proof that the old password fails and the new password succeeds;
-- isolated test-account deletion, account-local cleanup and preservation of device identity.
+## Deployment prerequisites
 
-Existing Firestore Rules tests continue to protect owner isolation. Destructive browser tests create their own dedicated test account and never target production users.
+Production account deletion requires only the Firebase services already used by Tornado:
 
-## Deployment and manual prerequisites
+- Firebase Authentication;
+- Cloud Firestore and its Security Rules;
+- Firebase Hosting for the web client.
 
-Stage 7 adds Firebase Functions source under `functions/` and configures the Functions emulator. Production account deletion requires `deleteTornadoAccount` to be deployed to Firebase project `tornado-app-launcher`.
+The normal deployment workflow validates Firestore Rules in the emulator and deploys the rules before Hosting. There is no Cloud Functions deployment step and no requirement to enable Cloud Functions, Cloud Build or Artifact Registry for account deletion.
 
-The deployment identity must have the Firebase/Google Cloud permissions required to deploy Cloud Functions, and the Firebase project must be on a plan that supports Cloud Functions. If the current GitHub service account cannot deploy Functions, grant the minimum required deployment roles or deploy the function using an authorized operator. Do not copy Admin credentials into the web app.
-
-Email/password Authentication must remain enabled. Firebase's Authentication email templates and authorized domains should be reviewed so verification and verify-before-update emails use the intended Tornado branding/domain.
+Email/password Authentication must remain enabled. Firebase Authentication email templates and authorized domains should be reviewed so verification and email-change flows use the intended Tornado branding/domain.
 
 ## Data remaining after deletion
 
-Tornado intentionally retains only device-level local configuration that is not owned by the deleted account. The account's Firebase Auth record and `users/{uid}` Firestore tree are intended to be removed. No Stage 7 analytics or new telemetry is introduced.
+The Firebase Auth record and the current known `users/{uid}` Firestore tree are removed. Tornado intentionally retains only genuine device-level local configuration that is not owned by the deleted account. No account-deletion telemetry is introduced.

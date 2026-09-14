@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { clearAccountOwnedLocalData } from '../account/accountLocalData.js'
+import { deleteFirebaseAccount } from '../account/deleteAccountCloudData.js'
 
 const AuthContext = createContext(null)
 const TEST_SESSION_KEY = 'tornado-test-auth-session'
@@ -9,7 +10,6 @@ const TEST_ACCOUNT = { uid: 'test-existing@tornado.test', email: 'existing@torna
 const firebaseVersion = '11.10.0'
 const appModuleUrl = `https://www.gstatic.com/firebasejs/${firebaseVersion}/firebase-app.js`
 const authModuleUrl = `https://www.gstatic.com/firebasejs/${firebaseVersion}/firebase-auth.js`
-const functionsModuleUrl = `https://www.gstatic.com/firebasejs/${firebaseVersion}/firebase-functions.js`
 
 const firebaseConfigFromEnv = () => {
   const config = {
@@ -49,8 +49,6 @@ function mapAuthError(error) {
   if (code.includes('network-request-failed') || code.includes('unavailable')) return 'Unable to connect. Check your network and try again.'
   if (code.includes('too-many-requests')) return 'Too many attempts. Please try again later.'
   if (code.includes('configuration-missing')) return 'Tornado sign-in is not configured on this build.'
-  if (code.includes('functions/not-found')) return 'Account deletion is not available on this deployment yet.'
-  if (code.includes('functions/failed-precondition')) return 'Please confirm your password again before deleting this account.'
 
   return 'Unable to complete that request right now. Please try again.'
 }
@@ -180,10 +178,9 @@ function snapshotFirebaseUser(user) {
 }
 
 async function createFirebaseAdapter() {
-  const [appModule, authModule, functionsModule, config] = await Promise.all([
+  const [appModule, authModule, config] = await Promise.all([
     import(/* @vite-ignore */ appModuleUrl),
     import(/* @vite-ignore */ authModuleUrl),
-    import(/* @vite-ignore */ functionsModuleUrl),
     resolveFirebaseConfig(),
   ])
 
@@ -193,13 +190,6 @@ async function createFirebaseAdapter() {
 
   const emulatorUrl = import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_URL
   if (emulatorUrl) authModule.connectAuthEmulator(auth, emulatorUrl, { disableWarnings: true })
-
-  const functions = functionsModule.getFunctions(app)
-  const functionsEmulator = import.meta.env.VITE_FIREBASE_FUNCTIONS_EMULATOR_URL
-  if (functionsEmulator) {
-    const url = new URL(functionsEmulator)
-    functionsModule.connectFunctionsEmulator(functions, url.hostname, Number(url.port || 5001))
-  }
 
   const currentUser = () => {
     if (!auth.currentUser) throw authError('auth/user-not-found')
@@ -247,10 +237,11 @@ async function createFirebaseAdapter() {
       return snapshotFirebaseUser(auth.currentUser)
     },
     async deleteAccount(currentPassword) {
-      await reauthenticate(currentPassword)
-      const callDelete = functionsModule.httpsCallable(functions, 'deleteTornadoAccount')
-      await callDelete()
-      try { await authModule.signOut(auth) } catch { /* server already deleted the account */ }
+      const firebaseUser = currentUser()
+      const passwordProvider = (firebaseUser.providerData || []).some(provider => provider.providerId === 'password')
+      if (passwordProvider) await reauthenticate(currentPassword)
+      await deleteFirebaseAccount(firebaseUser)
+      try { await authModule.signOut(auth) } catch { /* account is already deleted */ }
     },
   }
 }

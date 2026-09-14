@@ -54,7 +54,7 @@ service cloud.firestore {
       allow update: if owns(uid)
         && validProfile(request.resource.data)
         && request.resource.data.createdAt == resource.data.createdAt;
-      allow delete: if false;
+      allow delete: if owns(uid);
 
       match /config/{configName} {
         allow read: if owns(uid) && configName in ['appearance', 'launcher', 'preferences'];

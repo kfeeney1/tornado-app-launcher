@@ -51,7 +51,7 @@ test('bounded discovery evidence is machine local and keyed only by Tornado IDs'
   assert.equal(JSON.stringify(device).includes('sam'), false)
 })
 
-test('native launch failure invalidates stale local resolution before fallback', async () => {
+test('native launch failure invalidates stale local resolution and records fresh missing evidence before fallback', async () => {
   const storage = memoryStorage()
   cacheWindowsResolution('minecraft', { installed: true, launcher: 'minecraft-launcher' }, storage, 3_000)
   let resolverCalls = 0
@@ -61,7 +61,7 @@ test('native launch failure invalidates stale local resolution before fallback',
     can: capability => capability === PLATFORM_CAPABILITIES.GAME_RESOLUTION,
     resolveGame: async () => {
       resolverCalls += 1
-      return { ok: true, value: { appId: 'minecraft', installed: true, launcher: 'minecraft-launcher' } }
+      return { ok: true, value: { appId: 'minecraft', installed: false, launcher: 'minecraft-launcher' } }
     },
     launchTarget: async () => ({ ok: false, reason: 'launch-failed' }),
     openExternal: async url => { fallback = url; return { ok: true, value: true } },
@@ -69,9 +69,14 @@ test('native launch failure invalidates stale local resolution before fallback',
   const item = { id: 'minecraft', type: 'game', launchUrl: 'minecraft://', installUrl: 'https://www.minecraft.net/download' }
 
   await launchApp(item, platform, { storage, now: 3_001 })
-  assert.equal(resolverCalls, 0)
+  assert.equal(resolverCalls, 1)
   assert.equal(fallback, 'https://www.minecraft.net/download')
-  assert.equal(getCachedWindowsResolution('minecraft', storage, 3_002), null)
+  assert.deepEqual(getCachedWindowsResolution('minecraft', storage, 3_002), {
+    installed: false,
+    launcher: 'minecraft-launcher',
+    source: 'game-resolver',
+    checkedAt: 3_001,
+  })
 })
 
 test('stale cache triggers fresh local resolution and refreshes persistence', async () => {

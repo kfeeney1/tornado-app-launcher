@@ -12,6 +12,8 @@ const APP_ALIASES = Object.freeze({
   roblox: ['roblox player', 'roblox'],
 })
 
+const NATIVE_APP_IDS = new Set(['spotify', 'discord', 'notion'])
+
 function normalizeName(value) {
   return String(value || '')
     .toLowerCase()
@@ -36,7 +38,7 @@ function getStartMenuRoots(env = process.env) {
   return [...new Set(roots)]
 }
 
-async function collectShortcutNames(root, depth = 0, state = { count: 0 }) {
+async function collectShortcutRecords(root, depth = 0, state = { count: 0 }) {
   if (depth > MAX_DEPTH || state.count >= MAX_ENTRIES) return []
   let entries
   try {
@@ -45,18 +47,24 @@ async function collectShortcutNames(root, depth = 0, state = { count: 0 }) {
     return []
   }
 
-  const names = []
+  const records = []
   for (const entry of entries) {
     if (state.count >= MAX_ENTRIES) break
     state.count += 1
     if (entry.isSymbolicLink()) continue
     if (entry.isDirectory()) {
-      names.push(...await collectShortcutNames(path.join(root, entry.name), depth + 1, state))
+      records.push(...await collectShortcutRecords(path.join(root, entry.name), depth + 1, state))
       continue
     }
-    if (entry.isFile() && /\.(lnk|url)$/i.test(entry.name)) names.push(entry.name)
+    if (entry.isFile() && /\.(lnk|url)$/i.test(entry.name)) {
+      records.push({ name: entry.name, shortcutPath: path.join(root, entry.name) })
+    }
   }
-  return names
+  return records
+}
+
+async function collectShortcutNames(root, depth = 0, state = { count: 0 }) {
+  return (await collectShortcutRecords(root, depth, state)).map(record => record.name)
 }
 
 function matchDiscoveredNames(names) {
@@ -79,11 +87,25 @@ async function discoverInstalledApps({ platform = process.platform, env = proces
   return matchDiscoveredNames(names)
 }
 
+async function findInstalledAppShortcut(appId, { platform = process.platform, env = process.env } = {}) {
+  if (platform !== 'win32' || !NATIVE_APP_IDS.has(appId)) return null
+  const state = { count: 0 }
+  for (const root of getStartMenuRoots(env)) {
+    const records = await collectShortcutRecords(root, 0, state)
+    const match = records.find(record => record.name.toLowerCase().endsWith('.lnk') && matchTornadoAppId(record.name) === appId)
+    if (match) return match.shortcutPath
+  }
+  return null
+}
+
 module.exports = {
   APP_ALIASES,
+  NATIVE_APP_IDS,
   MAX_DEPTH,
   MAX_ENTRIES,
+  collectShortcutNames,
   discoverInstalledApps,
+  findInstalledAppShortcut,
   getStartMenuRoots,
   matchDiscoveredNames,
   matchTornadoAppId,

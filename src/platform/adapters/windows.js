@@ -2,7 +2,12 @@ import { PLATFORM_CAPABILITIES, PLATFORM_KINDS, supported } from '../contracts.j
 import { isAllowedExternalUrl } from '../urlPolicy.js'
 
 function isLaunchTarget(value) {
-  return Boolean(value && typeof value === 'object' && typeof value.appId === 'string' && value.type === 'protocol')
+  return Boolean(
+    value
+    && typeof value === 'object'
+    && typeof value.appId === 'string'
+    && ['protocol', 'installed-app'].includes(value.type),
+  )
 }
 
 function sanitizeInstalledApps(value) {

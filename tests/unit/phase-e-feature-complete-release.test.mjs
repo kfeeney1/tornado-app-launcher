@@ -18,9 +18,7 @@ test('Phase E cannot convert deferred Windows acceptance into a CI pass', () => 
   assert.match(phaseD, /Phase D remains \*\*acceptance pending\*\*/)
   assert.match(phaseE, /feature-complete candidate — Windows acceptance pending/)
   assert.match(phaseE, /cannot reach the second state without the real-machine evidence/)
-  for (const marker of ['D1', 'D2', 'D3', 'D4', 'D5', 'D6']) {
-    assert.match(phaseE, new RegExp(marker))
-  }
+  assert.match(phaseE, /D1[–-]D6/)
 })
 
 test('final release reuses immutable candidate artifacts instead of rebuilding during promotion', () => {

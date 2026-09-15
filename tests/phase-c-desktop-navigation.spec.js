@@ -9,7 +9,7 @@ test.describe('Phase C shared navigation regression', () => {
       const navName = view === 'Discover' ? 'Add Apps' : view
       await page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: navName }).click()
       await expect(page.getByRole('heading', { name: view })).toBeVisible()
-      await page.getByRole('button', { name: 'Home' }).click()
+      await page.getByRole('main').getByRole('button', { name: 'Home' }).click()
       await expect(page.getByRole('heading', { name: 'Apps' })).toBeVisible()
       await expect(page.getByRole('heading', { name: 'Games' })).toBeVisible()
     }

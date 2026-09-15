@@ -6,7 +6,7 @@ test.describe('Phase C shared navigation regression', () => {
     await signInTestUser(page)
 
     for (const view of ['Discover', 'Settings', 'Profile']) {
-      const navName = view === 'Discover' ? 'Store' : view
+      const navName = view === 'Discover' ? 'Add Apps' : view
       await page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: navName }).click()
       await expect(page.getByRole('heading', { name: view })).toBeVisible()
       await page.getByRole('button', { name: 'Home' }).click()

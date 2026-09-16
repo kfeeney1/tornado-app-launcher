@@ -1,0 +1,8 @@
+{
+  "appId": "ie.tornado.launcher",
+  "appName": "Tornado",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

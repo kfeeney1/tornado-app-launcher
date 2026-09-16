@@ -75,7 +75,7 @@ export default function App() {
       })
     }, 120)
     return () => window.clearInterval(timer)
-  }, [download?.id, selected, setLauncher])
+  }, [download, selected, setLauncher])
 
   const navigate = nextView => {
     if (!validViews.has(nextView) || nextView === view) return
@@ -98,51 +98,17 @@ export default function App() {
       <Navigation view={view} onNavigate={navigate} />
       <main className="content">
         {view === 'home' && <>
-          <section className="hero"><div><p className="eyebrow">YOUR LAUNCHER</p><h1>Everything you play.<br />One clean start.</h1></div><Clock /></section>
-          <label className="search"><span aria-hidden="true">⌕</span><input aria-label="Search launcher" placeholder="Search apps and games" value={query} onChange={event => setQuery(event.target.value)} /></label>
-          {['app', 'game'].map(type => <section key={type} className="launcher-section">
-            <div className="section-title"><h2>{type === 'app' ? 'Apps' : 'Games'}</h2><span>{chosen(type).length}/5</span></div>
-            <div className="grid">
-              {chosen(type).filter(item => `${item.name} ${item.description}`.toLowerCase().includes(query.toLowerCase())).map(item => <LauncherCard key={item.id} item={item} onRemove={remove} />)}
-              <button className="add-card" onClick={() => navigate('store')}>+ Add {type === 'app' ? 'app' : 'game'}</button>
-            </div>
-          </section>)}
+          <section className="hero"><div><p className="eyebrow">WELCOME BACK</p><h1>{displayName}</h1><p className={`sync-status ${syncStatus}`}>{syncLabel(syncStatus)}{syncMessage ? ` · ${syncMessage}` : ''}{lastSyncedAt ? ` · ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}</p></div><Clock /></section>
+          <section><h2>Games</h2><div className="launcher-grid">{chosen('game').map(item => <LauncherCard key={item.id} item={item} onRemove={remove} />)}</div></section>
+          <section><h2>Apps</h2><div className="launcher-grid">{chosen('app').map(item => <LauncherCard key={item.id} item={item} onRemove={remove} />)}</div></section>
         </>}
-
-        {view === 'store' && <section>
-          <PageHead title="Discover" text="Add web apps and launcher entries to Tornado." onHome={() => navigate('home')} />
-          <label className="search"><span aria-hidden="true">⌕</span><input aria-label="Search store" placeholder="Search the catalogue" value={query} onChange={event => setQuery(event.target.value)} /></label>
-          <div className="store-grid">{filtered.map(item => {
-            const isDownloading = download?.id === item.id
-            return <article className="store-card" key={item.id}>
-              <AppIcon item={item} /><div><h3>{item.name}</h3><p>{item.description}</p><small>{item.type === 'game' ? 'Game' : 'App'} · {item.url ? 'Web available' : 'Launcher demo'}</small>
-              {isDownloading && <div className="download-status" aria-live="polite"><progress value={download.progress} max="100" aria-label={`Adding ${item.name}`} /><span>{download.progress}%</span></div>}</div>
-              <button disabled={selected.includes(item.id) || Boolean(download)} onClick={() => add(item)}>{selected.includes(item.id) ? 'Added' : isDownloading ? 'Adding…' : 'Add'}</button>
-              {isDownloading && <button className="cancel" onClick={() => setDownload(null)}>Cancel</button>}
-            </article>
-          })}</div>
-        </section>}
-
-        {view === 'settings' && <section>
-          <PageHead title="Settings" text="Make Tornado feel like yours." onHome={() => navigate('home')} />
-          <div className="panel"><h2>Appearance</h2><p>Theme follows your Tornado account across supported clients.</p><div className="segmented" aria-label="Appearance"><button className={theme === 'dark' ? 'selected' : ''} onClick={() => setAppearance('dark')}>Dark</button><button className={theme === 'light' ? 'selected' : ''} onClick={() => setAppearance('light')}>Light</button></div></div>
-          <div className="panel"><h2>Performance</h2><p>This setting area is device-specific. Tornado can keep its own interface lightweight, but browser settings do not change native game FPS.</p></div>
-          <div className="panel"><h2>About</h2><p>Tornado v{packageInfo.version}</p><p className="field-help">Windows updates use the official Tornado stable GitHub Releases source. Automatic installation stays disabled until trusted Windows signing is available.</p><button onClick={() => openExternal(latestReleaseUrl)}>Check for updates</button>{!isDesktop() && <button onClick={() => openExternal(latestReleaseUrl)}>Download Tornado for Windows</button>}<SupportDiagnostics syncStatus={syncStatus} /></div>
-        </section>}
-
-        {view === 'profile' && <section>
-          <PageHead title="Profile" text="Your Tornado account and synchronized launcher." onHome={() => navigate('home')} />
-          <div className="profile-card"><div className="avatar" aria-hidden="true">{displayName.slice(0, 1).toUpperCase()}</div><div><h2>{displayName}</h2><p>{user?.email}</p><small className="verification-label">{user?.emailVerified ? 'Verified email' : 'Email not verified'}</small></div></div>
-          <div className="panel"><h2>Tornado Sync</h2><p role="status"><strong>{syncLabel(syncStatus)}</strong>{lastSyncedAt && syncStatus === 'synced' ? ` · Last synced ${lastSyncedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}</p>{syncMessage && <p className="field-help">{syncMessage}</p>}<p className="field-help">Apps, games, launcher order and portable appearance settings follow this account. Device launch capabilities remain local.</p></div>
-          <AccountPanel />
-          <div className="panel"><h2>Launcher</h2><p>{selected.length} items currently pinned and stored in your account-scoped local cache.</p></div>
-        </section>}
+        {view === 'store' && <>
+          <section className="store-header"><div><p className="eyebrow">CATALOGUE</p><h1>Add to Tornado</h1></div><input aria-label="Search catalogue" placeholder="Search apps and games" value={query} onChange={event => setQuery(event.target.value)} /></section>
+          <div className="catalog-grid">{filtered.map(item => <article className="catalog-card" key={item.id}><AppIcon item={item} /><div><h3>{item.name}</h3><p>{item.description}</p></div><button type="button" disabled={selected.includes(item.id) || Boolean(download)} onClick={() => add(item)}>{selected.includes(item.id) ? 'Added' : download?.id === item.id ? `${download.progress}%` : 'Add'}</button></article>)}</div>
+        </>}
+        {view === 'profile' && <AccountPanel />}
+        {view === 'settings' && <section className="settings"><p className="eyebrow">SETTINGS</p><h1>Tornado settings</h1><label>Appearance<select value={theme} onChange={event => setAppearance(event.target.value)}><option value="dark">Dark</option><option value="light">Light</option></select></label><p>Version {packageInfo.version}</p>{isDesktop() && <button type="button" onClick={() => openExternal(latestReleaseUrl)}>Check for updates</button>}<SupportDiagnostics /></section>}
       </main>
-      <footer>Tornado · Account-synced launcher</footer>
     </div>
   )
-}
-
-function PageHead({ title, text, onHome }) {
-  return <div className="page-head"><div><p className="eyebrow">TORNADO</p><h1>{title}</h1><p>{text}</p></div><button onClick={onHome}>Home</button></div>
 }

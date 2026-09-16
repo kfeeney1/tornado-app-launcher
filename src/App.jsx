@@ -75,7 +75,7 @@ export default function App() {
       })
     }, 120)
     return () => window.clearInterval(timer)
-  }, [download?.id, selected, setLauncher])
+  }, [download, selected, setLauncher])
 
   const navigate = nextView => {
     if (!validViews.has(nextView) || nextView === view) return

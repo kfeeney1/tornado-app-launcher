@@ -8,6 +8,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "android:add": "npx cap add android",
+    "android:sync": "npm run build && npx cap sync android",
+    "android:open": "npx cap open android",
+    "android:build:debug": "npm run android:sync && cd android && ./gradlew assembleDebug",
     "desktop:dev": "node electron/scripts/dev.mjs",
     "desktop:build": "npm run build && npx --yes electron-builder@26.15.3 --win --x64 --config electron-builder.yml --publish never",
     "desktop:dir": "npm run build && npx --yes electron-builder@26.15.3 --dir --config electron-builder.yml",
@@ -17,12 +21,15 @@
     "test:smoke": "playwright test"
   },
   "dependencies": {
+    "@capacitor/android": "7.4.3",
+    "@capacitor/core": "7.4.3",
     "@vitejs/plugin-react": "latest",
     "vite": "latest",
     "react": "latest",
     "react-dom": "latest"
   },
   "devDependencies": {
+    "@capacitor/cli": "7.4.3",
     "@eslint/js": "latest",
     "@playwright/test": "latest",
     "eslint": "latest",

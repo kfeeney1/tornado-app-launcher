@@ -7,33 +7,8 @@ const TEST_SESSION_KEY = 'tornado-test-auth-session'
 const TEST_ACCOUNTS_KEY = 'tornado-test-auth-accounts-v2'
 const TEST_ACCOUNT = { uid: 'test-existing@tornado.test', email: 'existing@tornado.test', password: 'Tornado123!', displayName: 'Tornado Player', emailVerified: false, providerIds: ['password'] }
 
-const firebaseVersion = '11.10.0'
-const appModuleUrl = `https://www.gstatic.com/firebasejs/${firebaseVersion}/firebase-app.js`
-const authModuleUrl = `https://www.gstatic.com/firebasejs/${firebaseVersion}/firebase-auth.js`
-
-const firebaseConfigFromEnv = () => {
-  const config = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  }
-
-  return config.apiKey && config.projectId && config.appId ? config : null
-}
-
-async function resolveFirebaseConfig() {
-  const envConfig = firebaseConfigFromEnv()
-  if (envConfig) return envConfig
-
-  if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
-    const response = await fetch('/__/firebase/init.json', { cache: 'no-store' })
-    if (response.ok) return response.json()
-  }
-
-  throw new Error('firebase/configuration-missing')
-}
+import { getAuth, setPersistence, browserLocalPersistence, connectAuthEmulator, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut as firebaseSignOut, sendPasswordResetEmail, reload, updateProfile, sendEmailVerification, EmailAuthProvider, reauthenticateWithCredential, verifyBeforeUpdateEmail, updatePassword } from 'firebase/auth'
+import { getFirebaseClientApp } from '../config/firebaseRuntime.js'
 
 function mapAuthError(error) {
   const code = error?.code || error?.cause?.code || error?.message || ''
@@ -178,18 +153,11 @@ function snapshotFirebaseUser(user) {
 }
 
 async function createFirebaseAdapter() {
-  const [appModule, authModule, config] = await Promise.all([
-    import(/* @vite-ignore */ appModuleUrl),
-    import(/* @vite-ignore */ authModuleUrl),
-    resolveFirebaseConfig(),
-  ])
-
-  const app = appModule.getApps().length ? appModule.getApp() : appModule.initializeApp(config)
-  const auth = authModule.getAuth(app)
-  await authModule.setPersistence(auth, authModule.browserLocalPersistence)
+  const auth = getAuth(getFirebaseClientApp())
+  await setPersistence(auth, browserLocalPersistence)
 
   const emulatorUrl = import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_URL
-  if (emulatorUrl) authModule.connectAuthEmulator(auth, emulatorUrl, { disableWarnings: true })
+  if (emulatorUrl) connectAuthEmulator(auth, emulatorUrl, { disableWarnings: true })
 
   const currentUser = () => {
     if (!auth.currentUser) throw authError('auth/user-not-found')
@@ -198,42 +166,42 @@ async function createFirebaseAdapter() {
   const reauthenticate = async password => {
     const firebaseUser = currentUser()
     if (!(firebaseUser.providerData || []).some(provider => provider.providerId === 'password') || !firebaseUser.email) throw authError('auth/provider-mismatch')
-    const credential = authModule.EmailAuthProvider.credential(firebaseUser.email, password)
-    await authModule.reauthenticateWithCredential(firebaseUser, credential)
+    const credential = EmailAuthProvider.credential(firebaseUser.email, password)
+    await reauthenticateWithCredential(firebaseUser, credential)
   }
 
   return {
-    subscribe: next => authModule.onAuthStateChanged(auth, user => next(snapshotFirebaseUser(user))),
+    subscribe: next => onAuthStateChanged(auth, user => next(snapshotFirebaseUser(user))),
     async signIn(email, password) {
-      const credential = await authModule.signInWithEmailAndPassword(auth, email, password)
+      const credential = await signInWithEmailAndPassword(auth, email, password)
       return snapshotFirebaseUser(credential.user)
     },
     async signUp(email, password) {
-      const credential = await authModule.createUserWithEmailAndPassword(auth, email, password)
+      const credential = await createUserWithEmailAndPassword(auth, email, password)
       return snapshotFirebaseUser(credential.user)
     },
-    signOut: () => authModule.signOut(auth),
-    resetPassword: email => authModule.sendPasswordResetEmail(auth, email),
+    signOut: () => firebaseSignOut(auth),
+    resetPassword: email => sendPasswordResetEmail(auth, email),
     async refreshUser() {
       const firebaseUser = currentUser()
-      await authModule.reload(firebaseUser)
+      await reload(firebaseUser)
       return snapshotFirebaseUser(auth.currentUser)
     },
     async updateDisplayName(displayName) {
       const firebaseUser = currentUser()
-      await authModule.updateProfile(firebaseUser, { displayName })
-      await authModule.reload(firebaseUser)
+      await updateProfile(firebaseUser, { displayName })
+      await reload(firebaseUser)
       return snapshotFirebaseUser(auth.currentUser)
     },
-    sendVerificationEmail: () => authModule.sendEmailVerification(currentUser()),
+    sendVerificationEmail: () => sendEmailVerification(currentUser()),
     reauthenticate,
     async requestEmailChange(password, newEmail) {
       await reauthenticate(password)
-      await authModule.verifyBeforeUpdateEmail(currentUser(), newEmail)
+      await verifyBeforeUpdateEmail(currentUser(), newEmail)
     },
     async changePassword(currentPassword, newPassword) {
       await reauthenticate(currentPassword)
-      await authModule.updatePassword(currentUser(), newPassword)
+      await updatePassword(currentUser(), newPassword)
       return snapshotFirebaseUser(auth.currentUser)
     },
     async deleteAccount(currentPassword) {
@@ -241,7 +209,7 @@ async function createFirebaseAdapter() {
       const passwordProvider = (firebaseUser.providerData || []).some(provider => provider.providerId === 'password')
       if (passwordProvider) await reauthenticate(currentPassword)
       await deleteFirebaseAccount(firebaseUser)
-      try { await authModule.signOut(auth) } catch { /* account is already deleted */ }
+      try { await firebaseSignOut(auth) } catch { /* account is already deleted */ }
     },
   }
 }

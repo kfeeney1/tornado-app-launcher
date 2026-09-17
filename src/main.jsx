@@ -7,6 +7,7 @@ import { CloudProfileProvider } from './cloud/CloudProfileContext.jsx'
 import AppErrorBoundary from './components/AppErrorBoundary.jsx'
 import { runStartupConfigRecovery } from './config/startupRecovery.js'
 import { DeviceProvider } from './devices/DeviceContext.jsx'
+import AndroidLifecycleBoundary from './platform/AndroidLifecycleBoundary.jsx'
 import { SyncProvider } from './sync/SyncContext.jsx'
 import './styles.css'
 
@@ -31,6 +32,7 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <AppErrorBoundary>
       <AuthProvider>
+        <AndroidLifecycleBoundary />
         <TornadoRoot />
       </AuthProvider>
     </AppErrorBoundary>

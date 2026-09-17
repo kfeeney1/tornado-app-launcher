@@ -5,6 +5,16 @@ export function resolveLaunchTarget(item, platformKind = 'web') {
     ? item.playStoreUrl
     : item.installUrl || item.url || null
 
+  if (platformKind === 'android' && item.type === 'game' && item.androidPackage) {
+    return {
+      appId: item.id,
+      type: 'protocol',
+      packageName: item.androidPackage,
+      protocol: item.launchUrl || null,
+      fallbackUrl,
+    }
+  }
+
   if (item.type === 'game' && item.launchUrl) {
     return {
       appId: item.id,

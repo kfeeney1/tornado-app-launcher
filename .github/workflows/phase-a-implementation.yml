@@ -1,0 +1,77 @@
+name: Phase A Implementation
+
+on:
+  push:
+    branches: [phase-a-android-runtime-firebase]
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase-a-android-runtime-firebase
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Migrate Firebase to bundled SDK
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/auth/AuthContext.jsx')
+          s=p.read_text()
+          start=s.index("const firebaseVersion = '11.10.0'")
+          end=s.index('\nfunction mapAuthError', start)
+          s=s[:start]+"import { getAuth, setPersistence, browserLocalPersistence, connectAuthEmulator, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut as firebaseSignOut, sendPasswordResetEmail, reload, updateProfile, sendEmailVerification, EmailAuthProvider, reauthenticateWithCredential, verifyBeforeUpdateEmail, updatePassword } from 'firebase/auth'\nimport { getFirebaseClientApp } from '../config/firebaseRuntime.js'\n"+s[end:]
+          old="""async function createFirebaseAdapter() {\n  const [appModule, authModule, config] = await Promise.all([\n    import(/* @vite-ignore */ appModuleUrl),\n    import(/* @vite-ignore */ authModuleUrl),\n    resolveFirebaseConfig(),\n  ])\n\n  const app = appModule.getApps().length ? appModule.getApp() : appModule.initializeApp(config)\n  const auth = authModule.getAuth(app)\n  await authModule.setPersistence(auth, authModule.browserLocalPersistence)\n\n  const emulatorUrl = import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_URL\n  if (emulatorUrl) authModule.connectAuthEmulator(auth, emulatorUrl, { disableWarnings: true })\n"""
+          new="""async function createFirebaseAdapter() {\n  const auth = getAuth(getFirebaseClientApp())\n  await setPersistence(auth, browserLocalPersistence)\n\n  const emulatorUrl = import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_URL\n  if (emulatorUrl) connectAuthEmulator(auth, emulatorUrl, { disableWarnings: true })\n"""
+          if old not in s: raise SystemExit('Auth adapter bootstrap pattern changed')
+          s=s.replace(old,new)
+          reps={
+            'authModule.EmailAuthProvider.credential':'EmailAuthProvider.credential',
+            'authModule.reauthenticateWithCredential':'reauthenticateWithCredential',
+            'authModule.onAuthStateChanged':'onAuthStateChanged',
+            'authModule.signInWithEmailAndPassword':'signInWithEmailAndPassword',
+            'authModule.createUserWithEmailAndPassword':'createUserWithEmailAndPassword',
+            'authModule.signOut':'firebaseSignOut',
+            'authModule.sendPasswordResetEmail':'sendPasswordResetEmail',
+            'authModule.reload':'reload',
+            'authModule.updateProfile':'updateProfile',
+            'authModule.sendEmailVerification':'sendEmailVerification',
+            'authModule.verifyBeforeUpdateEmail':'verifyBeforeUpdateEmail',
+            'authModule.updatePassword':'updatePassword',
+          }
+          for a,b in reps.items(): s=s.replace(a,b)
+          p.write_text(s)
+
+          p=Path('src/cloud/cloudProfile.js')
+          s=p.read_text()
+          start=s.index("const firebaseVersion = '11.10.0'")
+          end=s.index('\nfunction assertUid', start)
+          replacement="""import { getFirestore, doc, runTransaction, serverTimestamp, getDoc, updateDoc, onSnapshot, setDoc, writeBatch } from 'firebase/firestore'\nimport { getFirebaseClientApp } from '../config/firebaseRuntime.js'\n\nasync function getFirestoreModules() {\n  return { firestoreModule: { doc, runTransaction, serverTimestamp, getDoc, updateDoc, onSnapshot, setDoc, writeBatch }, db: getFirestore(getFirebaseClientApp()) }\n}\n"""
+          s=s[:start]+replacement+s[end:]
+          p.write_text(s)
+          PY
+      - name: Refresh lockfile and install
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          npm ci
+      - name: Verify shared app
+        run: |
+          npm run lint
+          node --test tests/firebase-runtime.test.mjs
+          npm run build
+          npx cap sync android
+      - name: Commit generated migration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/auth/AuthContext.jsx src/cloud/cloudProfile.js package-lock.json android
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "feat(android): bundle Firebase runtime and sync native plugins"
+          git push origin HEAD:phase-a-android-runtime-firebase

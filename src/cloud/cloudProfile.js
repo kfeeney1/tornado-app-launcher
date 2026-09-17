@@ -1,21 +1,10 @@
 import { APPEARANCE_SCHEMA_VERSION, LAUNCHER_SCHEMA_VERSION, PREFERENCES_SCHEMA_VERSION, PROFILE_SCHEMA_VERSION, classifyCloudDocument, validateUserProfile } from './schema.js'
 
-const firebaseVersion = '11.10.0'
-const appModuleUrl = `https://www.gstatic.com/firebasejs/${firebaseVersion}/firebase-app.js`
-const firestoreModuleUrl = `https://www.gstatic.com/firebasejs/${firebaseVersion}/firebase-firestore.js`
-let firestorePromise = null
+import { getFirestore, doc, runTransaction, serverTimestamp, getDoc, updateDoc, onSnapshot, setDoc, writeBatch } from 'firebase/firestore'
+import { getFirebaseClientApp } from '../config/firebaseRuntime.js'
 
 async function getFirestoreModules() {
-  if (!firestorePromise) {
-    firestorePromise = Promise.all([
-      import(/* @vite-ignore */ appModuleUrl),
-      import(/* @vite-ignore */ firestoreModuleUrl),
-    ]).then(([appModule, firestoreModule]) => {
-      if (!appModule.getApps().length) throw new Error('cloud/firebase-not-initialized')
-      return { firestoreModule, db: firestoreModule.getFirestore(appModule.getApp()) }
-    })
-  }
-  return firestorePromise
+  return { firestoreModule: { doc, runTransaction, serverTimestamp, getDoc, updateDoc, onSnapshot, setDoc, writeBatch }, db: getFirestore(getFirebaseClientApp()) }
 }
 
 function assertUid(uid) {

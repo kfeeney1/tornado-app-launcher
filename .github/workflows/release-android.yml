@@ -1,0 +1,61 @@
+name: Release Android
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: Android version name
+        required: true
+        default: '0.1.1'
+      version_code:
+        description: Monotonically increasing Android version code
+        required: true
+        default: '101'
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      ANDROID_VERSION_NAME: ${{ inputs.version_name }}
+      ANDROID_VERSION_CODE: ${{ inputs.version_code }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - name: Install dependencies
+        run: npm ci
+      - name: Run Android quality contract
+        run: |
+          npm run lint -- --max-warnings=0
+          node --test tests/android-*.test.mjs tests/firebase-runtime.test.mjs
+          npm run build
+          npx cap sync android
+      - name: Run Android verification
+        working-directory: android
+        run: |
+          ./gradlew testDebugUnitTest lintDebug --no-daemon
+          ./gradlew bundleRelease assembleRelease --no-daemon
+      - name: Verify release outputs
+        run: |
+          test -f android/app/build/outputs/bundle/release/app-release.aab
+          test -f android/app/build/outputs/apk/release/app-release-unsigned.apk || test -f android/app/build/outputs/apk/release/app-release.apk
+      - name: Upload Android release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tornado-android-${{ inputs.version_name }}-${{ inputs.version_code }}
+          path: |
+            android/app/build/outputs/bundle/release/*.aab
+            android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 30

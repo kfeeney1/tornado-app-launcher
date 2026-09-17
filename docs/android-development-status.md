@@ -15,6 +15,12 @@ Physical-device authentication/profile/sync acceptance remains part of the final
 
 ## Phase B — Shared Web-Feature Parity on Android
 
-Status: in progress
+Status: implementation complete; awaiting PR gate.
 
-Parity target: the Android shell must expose the same shared React account, launcher, appearance, profile and cloud-sync features as Web unless a feature is explicitly platform-specific. Platform-specific launch behaviour is handled in Phase D.
+Evidence:
+- Android renders the same shared React launcher, catalogue, appearance, profile, account-management and sync surfaces as Web.
+- No Android-only fork or duplicate product UI was introduced.
+- Android external links now use the installed official Capacitor Browser plugin instead of a legacy global plugin lookup/window fallback.
+- Automated parity guards assert the shared account/profile/sync/launcher surface remains available to Android.
+
+Platform-specific app/game launch behaviour remains intentionally assigned to Phase D. Physical-device parity acceptance remains assigned to Phase G.

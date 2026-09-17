@@ -13,7 +13,7 @@ def releaseSigningConfigured = [
 
 android {
     namespace = "ie.tornado.launcher"
-    compileSdk = rootProject.ext.compileSdkVersion
+    compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
         applicationId "ie.tornado.launcher"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -26,8 +26,8 @@ android {
         }
     }
 
-    signingConfigs {
-        if (releaseSigningConfigured) {
+    if (releaseSigningConfigured) {
+        signingConfigs {
             release {
                 storeFile file(releaseKeystorePath)
                 storePassword releaseKeystorePassword

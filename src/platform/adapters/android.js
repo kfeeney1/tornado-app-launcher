@@ -23,7 +23,7 @@ export function createAndroidAdapter(_capacitor, browser = Browser, appLauncher 
       }
     },
     async launchTarget(target) {
-      const url = target?.protocol || target?.packageName
+      const url = target?.packageName || target?.protocol
       if (!url || !appLauncher?.openUrl) return { ok: false, reason: 'invalid-launch-target' }
       try {
         if (appLauncher.canOpenUrl) {

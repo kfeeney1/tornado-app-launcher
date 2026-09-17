@@ -16,7 +16,9 @@ export function createPlatform(runtime = globalThis) {
 
   const capacitor = runtimeWindow?.Capacitor
   if (capacitor && typeof capacitor.getPlatform === 'function' && capacitor.getPlatform() === PLATFORM_KINDS.ANDROID) {
-    return createAndroidAdapter(capacitor)
+    // The second argument keeps the adapter unit-testable without changing the
+    // production default, which is the official imported Capacitor Browser plugin.
+    return createAndroidAdapter(capacitor, capacitor?.Plugins?.Browser)
   }
 
   return createWebAdapter({ ...runtime, window: runtimeWindow })

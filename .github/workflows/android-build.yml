@@ -27,10 +27,20 @@ jobs:
           cache: gradle
       - name: Install dependencies
         run: npm ci
+      - name: Lint shared code
+        run: npm run lint -- --max-warnings=0
+      - name: Run Android contract tests
+        run: node --test tests/android-*.test.mjs tests/firebase-runtime.test.mjs
       - name: Build shared web app
         run: npm run build
       - name: Sync Capacitor Android
         run: npx cap sync android
+      - name: Run Android unit tests
+        working-directory: android
+        run: ./gradlew testDebugUnitTest --no-daemon
+      - name: Run Android lint
+        working-directory: android
+        run: ./gradlew lintDebug --no-daemon
       - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon

@@ -1,5 +1,11 @@
 apply plugin: 'com.android.application'
 
+def releaseKeystorePath = System.getenv('ANDROID_KEYSTORE_PATH')
+def releaseSigningConfigured = releaseKeystorePath &&
+        System.getenv('ANDROID_KEYSTORE_PASSWORD') &&
+        System.getenv('ANDROID_KEY_ALIAS') &&
+        System.getenv('ANDROID_KEY_PASSWORD')
+
 android {
     namespace = "ie.tornado.launcher"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,10 +22,9 @@ android {
     }
 
     signingConfigs {
-        release {
-            def keystorePath = System.getenv('ANDROID_KEYSTORE_PATH')
-            if (keystorePath) {
-                storeFile file(keystorePath)
+        if (releaseSigningConfigured) {
+            release {
+                storeFile file(releaseKeystorePath)
                 storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
                 keyAlias System.getenv('ANDROID_KEY_ALIAS')
                 keyPassword System.getenv('ANDROID_KEY_PASSWORD')
@@ -31,7 +36,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            if (System.getenv('ANDROID_KEYSTORE_PATH')) {
+            if (releaseSigningConfigured) {
                 signingConfig signingConfigs.release
             }
         }

@@ -20,8 +20,11 @@
   },
   "dependencies": {
     "@capacitor/android": "8.5.2",
+    "@capacitor/app": "8.5.2",
+    "@capacitor/browser": "8.5.2",
     "@capacitor/core": "8.5.2",
     "@vitejs/plugin-react": "latest",
+    "firebase": "11.10.0",
     "vite": "latest",
     "react": "latest",
     "react-dom": "latest"

@@ -31,7 +31,7 @@
     "react-dom": "latest"
   },
   "devDependencies": {
-    "@capacitor/cli": "8.5.2",
+    "@capacitor/cli": "8.5.3",
     "@eslint/js": "latest",
     "@playwright/test": "latest",
     "eslint": "latest",
